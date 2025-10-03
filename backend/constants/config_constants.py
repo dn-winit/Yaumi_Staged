@@ -3,7 +3,7 @@ Configuration constants
 """
 
 # Database
-DEFAULT_DB_DRIVER = '{ODBC Driver 17 for SQL Server}'
+DEFAULT_DB_DRIVER = '{ODBC Driver 18 for SQL Server}'
 DATABASE_CONNECTION_TIMEOUT = 30
 DATABASE_RETRY_ATTEMPTS = 3
 DATABASE_RETRY_DELAY = 2

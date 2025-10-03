@@ -20,7 +20,7 @@ for directory in [DATA_DIR, OUTPUT_DIR, CACHE_DIR, OUTPUT_DIR / 'recommendations
 
 # Database configuration - ALL VALUES FROM ENVIRONMENT VARIABLES
 DATABASE_CONFIG = {
-    'DRIVER': os.getenv('DB_DRIVER', '{ODBC Driver 17 for SQL Server}'),
+    'DRIVER': os.getenv('DB_DRIVER', '{ODBC Driver 18 for SQL Server}'),
     'SERVER': os.getenv('DB_SERVER'),
     'DATABASE': os.getenv('DB_NAME'),
     'UID': os.getenv('DB_USER'),
