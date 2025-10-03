@@ -29,7 +29,7 @@ services:
 
       # Database - SET THESE IN RENDER DASHBOARD (Secret)
       - key: DB_DRIVER
-        value: "{ODBC Driver 18 for SQL Server}"
+        value: "{ODBC Driver 17 for SQL Server}"
       - key: DB_SERVER
         sync: false  # Set manually in dashboard
       - key: DB_NAME
