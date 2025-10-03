@@ -13,7 +13,7 @@ services:
     branch: main
 
     # Python Backend Commands
-    buildCommand: "cd backend && pip install -r requirements.txt"
+    buildCommand: "chmod +x build.sh && ./build.sh"
     startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1"
 
     # Environment Variables (Set in Render Dashboard)
@@ -29,7 +29,7 @@ services:
 
       # Database - SET THESE IN RENDER DASHBOARD (Secret)
       - key: DB_DRIVER
-        value: "{ODBC Driver 17 for SQL Server}"
+        value: "{ODBC Driver 18 for SQL Server}"
       - key: DB_SERVER
         sync: false  # Set manually in dashboard
       - key: DB_NAME
