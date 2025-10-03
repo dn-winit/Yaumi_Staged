@@ -7,6 +7,7 @@
 - [ ] `.gitignore` configured properly
 - [ ] Code pushed to GitHub (main branch)
 - [ ] Database accessible from internet (or configure VPN/allowlist)
+- [ ] Region: Asia Pacific (Singapore) - for optimal performance in your region
 
 ---
 
@@ -21,7 +22,9 @@
 
 1. Click **"New +"** -> **"Web Service"**
 2. Connect GitHub repository: `Yaumi_Live`
-3. Render auto-detects `render.yaml` configuration
+3. Configure deployment settings:
+   - **Region**: Select **Singapore** (Asia Pacific region for best performance)
+   - Render auto-detects `render.yaml` configuration
 4. Click **"Apply"**
 
 ### 1.3 Configure Environment Variables
@@ -93,6 +96,7 @@ Expected response:
    - **Root Directory**: `./`
    - **Build Command**: `npm run build`
    - **Output Directory**: `dist`
+   - **Region**: Automatically optimized for Asia Pacific (Singapore edge network)
 
 4. **Environment Variables**:
    ```bash
@@ -100,6 +104,8 @@ Expected response:
    ```
 
 5. Click **"Deploy"**
+
+**Note for Asia Pacific**: Vercel automatically serves your app from the nearest edge location (Singapore) for optimal performance in the region.
 
 #### Option B: CLI (Recommended)
 
@@ -292,15 +298,21 @@ Solution:
 
 ### Backend (Render)
 
-**Upgrade from Free Tier** (when needed):
-- Starter Plan: $7/month (faster, no sleep)
-- Always-on, 512MB RAM
+**Region**: Singapore (Asia Pacific)
+- Free tier: Cold starts after 15min inactivity
+- **Upgrade from Free Tier** (when needed):
+  - Starter Plan: $7/month (faster, no sleep)
+  - Always-on, 512MB RAM
+  - Singapore region ensures low latency for Asia Pacific users
 
 ### Frontend (Vercel)
 
-- Already on global CDN
+**Edge Network**: Automatically optimized for Asia Pacific
+- Served from Singapore edge nodes
+- Sub-100ms latency across Asia Pacific region
 - Automatic edge caching
 - Image optimization available
+- Global CDN with Asia Pacific priority routing
 
 ---
 
