@@ -7,20 +7,13 @@
 services:
   - type: web
     name: yaumi-backend
-    runtime: python
+    runtime: docker
     region: singapore  # Asia Pacific region for optimal performance
     plan: free
     branch: main
 
-    # Python Backend Commands
-    buildCommand: "chmod +x build.sh && ./build.sh"
-    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1"
-
     # Environment Variables (Set in Render Dashboard)
     envVars:
-      - key: PYTHON_VERSION
-        value: "3.11.0"
-
       - key: ENVIRONMENT
         value: "production"
 
