@@ -1,0 +1,133 @@
+# ==========================================
+# SECURITY - NEVER COMMIT THESE FILES
+# ==========================================
+# Environment files (contain secrets)
+.env
+.env.*
+!.env.example
+*.env.local
+*.env.production.local
+*.env.development.local
+
+# Credentials and keys
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+credentials.json
+secrets.json
+config.secret.*
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# ==========================================
+# DEPENDENCIES
+# ==========================================
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+dist-info/
+.eggs/
+
+# ==========================================
+# BUILD OUTPUTS
+# ==========================================
+dist/
+build/
+*.dist
+*.bundle.*
+
+# ==========================================
+# DATA & CACHE (Sensitive)
+# ==========================================
+# Output files may contain customer data
+backend/output/recommendations/*.csv
+backend/output/supervision/*.json
+!backend/output/recommendations/.gitkeep
+!backend/output/supervision/.gitkeep
+
+# Cache files
+backend/data/cache/*
+!backend/data/cache/.gitkeep
+*.cache
+.cache/
+
+# ==========================================
+# IDE & EDITORS
+# ==========================================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+.claude/
+
+# ==========================================
+# OPERATING SYSTEM
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ==========================================
+# LOGS & DEBUGGING
+# ==========================================
+*.log
+logs/
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==========================================
+# TESTING & COVERAGE
+# ==========================================
+coverage/
+.nyc_output/
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# ==========================================
+# TEMPORARY FILES
+# ==========================================
+*.tmp
+*.temp
+*.bak
+*.backup
+*_backup.*
+.temp/
+tmp/

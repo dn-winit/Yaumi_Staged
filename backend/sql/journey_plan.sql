@@ -1,0 +1,1 @@
+Select  * from [YaumiLive].[dbo].[VW_GET_JOURNEYPLAN_DETAILS] where RouteCode = 1004

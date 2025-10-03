@@ -1,0 +1,271 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Blue Gradient Spectrum - Unified Color System */
+  :root {
+    /* Module Colors */
+    --color-dashboard: #2563EB;      /* Blue-600 - Analytics */
+    --color-forecast: #3B82F6;       /* Blue-500 - Predictions */
+    --color-orders: #4F46E5;         /* Indigo-600 - Intelligence */
+    --color-supervision: #0891B2;    /* Cyan-600 - Monitoring */
+
+    /* Typography */
+    --font-size-page-title: 1.875rem; /* 30px */
+    --font-size-section-title: 1.25rem; /* 20px */
+    --font-size-card-title: 1.125rem; /* 18px */
+    --font-size-body: 0.875rem; /* 14px */
+    --font-size-small: 0.75rem; /* 12px */
+  }
+}
+
+@layer components {
+  /* Page Layout */
+  .ui-page-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 py-6;
+  }
+
+  .ui-page-title {
+    @apply text-2xl sm:text-3xl font-bold text-gray-900 mb-2;
+  }
+
+  .ui-page-subtitle {
+    @apply text-sm text-gray-600;
+  }
+
+  .ui-section-title {
+    @apply text-xl font-semibold text-gray-900 mb-4;
+  }
+  .ui-card {
+    @apply bg-white border border-gray-200 rounded-xl shadow-md p-5;
+  }
+  
+  .ui-button {
+    @apply inline-flex items-center justify-center rounded-lg font-semibold transition-all duration-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm;
+  }
+
+  .ui-button-primary {
+    @apply ui-button bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:bg-gray-300;
+  }
+
+  .ui-button-secondary {
+    @apply ui-button bg-blue-500 text-white hover:bg-blue-600 focus:ring-blue-500 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:bg-gray-300;
+  }
+
+  .ui-button-neutral {
+    @apply ui-button text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 hover:border-gray-400 focus:ring-blue-500;
+  }
+  
+  .ui-input {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-colors placeholder-gray-400 shadow-sm bg-white;
+  }
+  
+  .ui-select {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-colors bg-white shadow-sm text-gray-800;
+    /* Ensure consistent dropdown direction */
+    appearance: auto;
+  }
+  
+  .ui-select option {
+    @apply text-gray-800 bg-white;
+  }
+  
+  .ui-select option:hover,
+  .ui-select option:focus {
+    @apply bg-blue-50;
+  }
+  
+  .ui-select option:checked {
+    @apply bg-blue-100;
+  }
+  
+  .ui-label {
+    @apply block text-sm font-semibold text-gray-800 mb-2;
+  }
+  
+  .ui-error {
+    @apply text-sm text-red-700 bg-red-50 px-4 py-3 rounded-lg border border-red-200 flex items-center;
+  }
+  
+  .ui-loading {
+    @apply flex items-center justify-center py-12 text-gray-600;
+  }
+  
+  .ui-empty-state {
+    @apply text-center py-16;
+  }
+  
+  .ui-section-header {
+    @apply mb-8;
+  }
+  
+  .ui-page-header {
+    @apply mb-10;
+  }
+  
+  .ui-stats-card {
+    @apply bg-gradient-to-r from-blue-50 to-emerald-50 border border-blue-200 rounded-xl p-6 shadow-md;
+  }
+  
+  .ui-filter-card {
+    @apply bg-white border border-gray-200 rounded-xl shadow-md p-6;
+  }
+  
+  .ui-data-table {
+    @apply bg-white border border-gray-200 rounded-xl shadow-md overflow-hidden;
+  }
+  
+  .ui-chart-container {
+    @apply bg-white border border-gray-200 rounded-xl shadow-md p-6;
+  }
+
+  /* Unified Component Styles */
+  .ui-filter-label {
+    @apply block text-xs font-semibold text-gray-800 mb-1.5;
+  }
+
+  .ui-filter-input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs transition-colors placeholder-gray-400 shadow-sm bg-white;
+  }
+
+  .ui-filter-select {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs transition-colors bg-white shadow-sm text-gray-800;
+  }
+
+  .ui-table-header {
+    @apply text-left py-2 px-3 text-xs font-semibold text-gray-700 bg-gray-50;
+  }
+
+  .ui-table-cell {
+    @apply py-2 px-3 text-xs text-gray-700;
+  }
+
+  .ui-popup-header {
+    @apply text-base font-bold text-gray-900;
+  }
+
+  .ui-popup-subtitle {
+    @apply text-xs text-gray-600;
+  }
+
+  .ui-chart-title {
+    @apply text-base font-semibold text-gray-900 mb-2;
+  }
+
+  /* ===== UNIFIED COMPONENT STYLES - USE EVERYWHERE ===== */
+
+  /* Section Headers - Same size everywhere */
+  .ui-section-heading {
+    @apply text-base font-semibold text-gray-900 mb-3;
+  }
+
+  /* Stat/Summary Cards - Same everywhere */
+  .ui-stat-card {
+    @apply ui-card p-3;
+  }
+
+  .ui-stat-value {
+    @apply text-lg font-bold text-gray-900;
+  }
+
+  .ui-stat-label {
+    @apply text-xs text-gray-600;
+  }
+
+  /* Icons - Standard sizes only */
+  .ui-icon-xs {
+    @apply w-3.5 h-3.5;
+  }
+
+  .ui-icon-sm {
+    @apply w-4 h-4;
+  }
+
+  .ui-icon-md {
+    @apply w-5 h-5;
+  }
+
+  /* Messages/Alerts - Same everywhere */
+  .ui-message {
+    @apply px-3 py-2 rounded-lg flex items-center text-xs mb-5;
+  }
+
+  .ui-message-success {
+    @apply ui-message bg-green-50 border border-green-200 text-green-700;
+  }
+
+  .ui-message-info {
+    @apply ui-message bg-blue-50 border border-blue-200 text-blue-700;
+  }
+
+  .ui-message-error {
+    @apply ui-message bg-red-50 border border-red-200 text-red-700;
+  }
+
+  /* Loading State - Same everywhere */
+  .ui-loading-container {
+    @apply flex flex-col items-center justify-center py-8;
+  }
+
+  .ui-loading-spinner {
+    @apply animate-spin rounded-full h-10 w-10 border-4 mb-3;
+  }
+
+  .ui-loading-title {
+    @apply text-base font-semibold text-gray-900 mb-1;
+  }
+
+  .ui-loading-text {
+    @apply text-xs text-gray-600;
+  }
+
+  /* Empty State - Same everywhere */
+  .ui-empty-container {
+    @apply ui-card text-center py-8;
+  }
+
+  .ui-empty-icon {
+    @apply mx-auto flex items-center justify-center h-10 w-10 rounded-full bg-gray-100 mb-3;
+  }
+
+  .ui-empty-title {
+    @apply text-base font-semibold text-gray-900 mb-1;
+  }
+
+  .ui-empty-text {
+    @apply text-xs text-gray-600;
+  }
+
+  /* Table Container - Same everywhere */
+  .ui-table-container {
+    @apply overflow-auto;
+    max-height: 500px;
+  }
+
+  .ui-table {
+    @apply w-full table-auto text-sm;
+  }
+
+  /* Grid Layouts - Standard everywhere */
+  .ui-grid-3 {
+    @apply grid grid-cols-1 md:grid-cols-3 gap-3;
+  }
+
+  .ui-grid-2 {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-3;
+  }
+
+  /* Spacing - Standard everywhere */
+  .ui-space-y {
+    @apply space-y-5;
+  }
+
+  .ui-mb-section {
+    @apply mb-5;
+  }
+
+  .ui-mb-header {
+    @apply mb-6;
+  }
+}

@@ -1,0 +1,1 @@
+select * from [YaumiAIML].[dbo].[yaumi_demand_historical_model_performance_20210105_to_20250908_run_20250912]

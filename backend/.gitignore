@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Data (keep structure but not files)
+data/*.csv
+data/cache/*.csv
+!data/.gitkeep
+!data/cache/.gitkeep
+
+# Output files
+output/recommendations/*.csv
+output/supervision/*.json
+!output/.gitkeep
+!output/recommendations/.gitkeep
+!output/supervision/.gitkeep
+
+# Environment
+.env
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/

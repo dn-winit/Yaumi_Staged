@@ -1,0 +1,57 @@
+# ==========================================
+# RENDER.COM DEPLOYMENT CONFIGURATION
+# ==========================================
+# Backend API Service Configuration
+
+services:
+  - type: web
+    name: yaumi-backend
+    runtime: python
+    region: singapore  # Asia Pacific region
+    plan: free
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1"
+
+    # Environment Variables (Set in Render Dashboard)
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+
+      - key: ENVIRONMENT
+        value: "production"
+
+      - key: API_PREFIX
+        value: "/api/v1"
+
+      # Database - SET THESE IN RENDER DASHBOARD (Secret)
+      - key: DB_DRIVER
+        value: "{ODBC Driver 17 for SQL Server}"
+      - key: DB_SERVER
+        sync: false  # Set manually in dashboard
+      - key: DB_NAME
+        sync: false  # Set manually in dashboard
+      - key: DB_USER
+        sync: false  # Set manually in dashboard
+      - key: DB_PASSWORD
+        sync: false  # Set manually in dashboard
+
+      # AI/LLM - SET IN RENDER DASHBOARD (Secret)
+      - key: GROQ_API_KEY
+        sync: false  # Set manually in dashboard
+
+      # Security - SET IN RENDER DASHBOARD (Secret)
+      - key: SECRET_KEY
+        sync: false  # Set manually in dashboard
+
+      # CORS - Update with your Vercel frontend URL
+      - key: CORS_ORIGINS
+        value: "https://*.vercel.app,https://yaumi-frontend.vercel.app"
+
+      - key: LOG_LEVEL
+        value: "INFO"
+
+    # Health check endpoint
+    healthCheckPath: /health
+
+    # Auto-deploy from main branch
+    autoDeploy: true
