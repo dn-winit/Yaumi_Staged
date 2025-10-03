@@ -1,6 +1,6 @@
-# =€ Deployment Guide - Render + Vercel
+# Deployment Guide - Render + Vercel
 
-## =Ë Pre-Deployment Checklist
+## Pre-Deployment Checklist
 
 - [ ] All sensitive data removed from code
 - [ ] `.env.example` updated with all required variables
@@ -10,7 +10,7 @@
 
 ---
 
-## =' Step 1: Deploy Backend to Render.com
+## Step 1: Deploy Backend to Render.com
 
 ### 1.1 Create Render Account
 1. Go to [render.com](https://render.com)
@@ -19,29 +19,29 @@
 
 ### 1.2 Deploy from GitHub
 
-1. Click **"New +"** ’ **"Web Service"**
+1. Click **"New +"** -> **"Web Service"**
 2. Connect GitHub repository: `Yaumi_Live`
 3. Render auto-detects `render.yaml` configuration
 4. Click **"Apply"**
 
 ### 1.3 Configure Environment Variables
 
-Go to **Dashboard** ’ **yaumi-backend** ’ **Environment**
+Go to **Dashboard** -> **yaumi-backend** -> **Environment**
 
 Add these secret variables:
 
 ```bash
 # Database (REQUIRED)
-DB_SERVER=20.46.47.104  # Or your new SQL Server IP
+DB_SERVER=your-server-ip
 DB_NAME=YaumiAIML
-DB_USER=<your-username>
-DB_PASSWORD=<NEW-SECURE-PASSWORD>  # CHANGE from exposed one!
+DB_USER=your-username
+DB_PASSWORD=your-secure-password
 
-# AI/LLM (REQUIRED)
-GROQ_API_KEY=<your-groq-api-key>
+# Analytics Engine (REQUIRED)
+GROQ_API_KEY=your-analytics-api-key
 
 # Security (REQUIRED)
-SECRET_KEY=<generate-using-python-secrets>
+SECRET_KEY=generate-using-python-secrets
 
 # CORS (Update after frontend deployment)
 CORS_ORIGINS=https://*.vercel.app,https://yaumi-frontend.vercel.app
@@ -54,7 +54,7 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
 ### 1.4 Deploy & Monitor
 
-1. Click **"Manual Deploy"** ’ **"Deploy latest commit"**
+1. Click **"Manual Deploy"** -> **"Deploy latest commit"**
 2. Monitor logs in Dashboard
 3. Wait for "Build successful" message
 4. Note your backend URL: `https://yaumi-backend.onrender.com`
@@ -75,7 +75,7 @@ Expected response:
 
 ---
 
-## < Step 2: Deploy Frontend to Vercel
+## Step 2: Deploy Frontend to Vercel
 
 ### 2.1 Create Vercel Account
 1. Go to [vercel.com](https://vercel.com)
@@ -86,7 +86,7 @@ Expected response:
 
 #### Option A: Dashboard (Easiest)
 
-1. Click **"Add New"** ’ **"Project"**
+1. Click **"Add New"** -> **"Project"**
 2. Import GitHub repo: `Yaumi_Live`
 3. Configure project:
    - **Framework Preset**: Vite
@@ -128,18 +128,18 @@ You'll receive: `https://yaumi-frontend.vercel.app`
 
 ---
 
-## = Step 3: Update CORS Configuration
+## Step 3: Update CORS Configuration
 
 ### 3.1 Update Backend CORS
 
-Go to **Render Dashboard** ’ **yaumi-backend** ’ **Environment**
+Go to **Render Dashboard** -> **yaumi-backend** -> **Environment**
 
 Update `CORS_ORIGINS`:
 ```bash
 CORS_ORIGINS=https://yaumi-frontend.vercel.app,https://yaumi-frontend-git-*.vercel.app
 ```
 
-Click **"Save Changes"** ’ Backend auto-redeploys
+Click **"Save Changes"** - Backend auto-redeploys
 
 ### 3.2 Test Connection
 
@@ -149,7 +149,7 @@ Click **"Save Changes"** ’ Backend auto-redeploys
 
 ---
 
-## = Step 4: Keep Backend Awake (Optional)
+## Step 4: Keep Backend Awake (Optional)
 
 Render free tier sleeps after 15 minutes of inactivity.
 
@@ -163,7 +163,7 @@ Render free tier sleeps after 15 minutes of inactivity.
    - **Monitoring Interval**: 5 minutes
 4. Save
 
-**Result**: Backend stays awake 24/7!
+**Result**: Backend stays awake 24/7
 
 ### Option 2: GitHub Actions
 
@@ -186,20 +186,20 @@ jobs:
 
 ---
 
-## =Ê Step 5: Monitoring & Logs
+## Step 5: Monitoring & Logs
 
 ### Render Logs (Backend)
-- Dashboard ’ yaumi-backend ’ **Logs**
+- Dashboard -> yaumi-backend -> **Logs**
 - Real-time log streaming
 - Filter by severity (INFO, ERROR, etc.)
 
 ### Vercel Logs (Frontend)
-- Dashboard ’ yaumi-frontend ’ **Deployments** ’ Click deployment ’ **Logs**
+- Dashboard -> yaumi-frontend -> **Deployments** -> Click deployment -> **Logs**
 - Build logs and runtime logs
 
 ---
 
-## = Continuous Deployment
+## Continuous Deployment
 
 Both platforms auto-deploy on git push:
 
@@ -215,7 +215,7 @@ git push origin main
 
 ---
 
-## = Troubleshooting
+## Troubleshooting
 
 ### Backend Issues
 
@@ -227,11 +227,11 @@ Solution:
 3. Check SQL Server firewall settings
 ```
 
-**Problem**: GROQ_API_KEY not working
+**Problem**: Analytics API key not working
 ```
 Solution:
-1. Verify key in Render Dashboard ’ Environment
-2. Check GROQ console for usage/limits
+1. Verify key in Render Dashboard -> Environment
+2. Check service console for usage/limits
 3. Ensure key has correct permissions
 ```
 
@@ -263,14 +263,13 @@ Solution:
 
 ---
 
-## = Security Post-Deployment
+## Security Post-Deployment
 
 ### Immediate Actions:
 
 1. **Change Database Password**
    ```bash
-   # The old password was exposed in git history!
-   # Log into SQL Server and change password
+   # Ensure strong password is set
    # Update DB_PASSWORD in Render env vars
    ```
 
@@ -284,12 +283,12 @@ Solution:
    - Enable on Vercel account
 
 4. **Monitor API Usage**
-   - Check GROQ API dashboard for unusual activity
+   - Check analytics service dashboard for unusual activity
    - Set up usage alerts if available
 
 ---
 
-## =È Performance Optimization
+## Performance Optimization
 
 ### Backend (Render)
 
@@ -305,21 +304,21 @@ Solution:
 
 ---
 
-## <¯ Custom Domain (Optional)
+## Custom Domain (Optional)
 
 ### For Backend (Render):
-1. Dashboard ’ yaumi-backend ’ **Settings** ’ **Custom Domains**
+1. Dashboard -> yaumi-backend -> **Settings** -> **Custom Domains**
 2. Add: `api.yaumi.com`
 3. Update DNS records at domain registrar
 
 ### For Frontend (Vercel):
-1. Dashboard ’ yaumi-frontend ’ **Settings** ’ **Domains**
+1. Dashboard -> yaumi-frontend -> **Settings** -> **Domains**
 2. Add: `app.yaumi.com`
 3. Update DNS records at domain registrar
 
 ---
 
-## =Þ Support
+## Support
 
 ### Render Support
 - Docs: https://render.com/docs
@@ -331,7 +330,7 @@ Solution:
 
 ---
 
-##  Deployment Complete!
+## Deployment Complete
 
 Your application is now live:
 
@@ -345,5 +344,3 @@ Your application is now live:
 3. Monitor logs for errors
 4. Set up analytics (optional)
 5. Configure custom domains (optional)
-
-<‰ **Congratulations!** Your Yaumi Analytics Platform is production-ready! <‰

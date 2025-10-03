@@ -1,116 +1,192 @@
 """
-Main FastAPI Application
-Clean and organized with dynamic imports
+Main FastAPI Application - Production Grade
+Clean, organized, and deployment-ready with comprehensive error handling and logging
 """
 
-from dotenv import load_dotenv
 import os
+import sys
 from pathlib import Path
+from contextlib import asynccontextmanager
 
-# Load .env file from backend directory
+# Add backend to path for clean imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Load environment variables first
+from dotenv import load_dotenv
 env_path = Path(__file__).parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
-# Validate required environment variables
-required_env_vars = ['DB_SERVER', 'DB_NAME', 'DB_USER', 'DB_PASSWORD']
-missing_vars = [var for var in required_env_vars if not os.getenv(var)]
-if missing_vars:
-    print(f"WARNING: Missing required environment variables: {', '.join(missing_vars)}")
-    print("Please check your .env file and ensure all required variables are set.")
-
+# Import production modules
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from contextlib import asynccontextmanager
-import logging
-import sys
-from pathlib import Path
 
-# Add backend to path for clean imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-# Import configuration and modules
-from backend.config import CORS_ORIGINS, API_PREFIX, LOG_LEVEL, LOG_FORMAT, SECRET_KEY, ENVIRONMENT
+# Import custom modules
+from backend.config import (
+    CORS_ORIGINS, API_PREFIX, LOG_LEVEL, SECRET_KEY, ENVIRONMENT,
+    DATABASE_CONFIG, BASE_DIR
+)
+from backend.logging_config import setup_logging, get_logger
+from backend.middleware import (
+    exception_handler_middleware,
+    logging_middleware,
+    request_validation_middleware
+)
+from backend.exceptions import ValidationException
 from backend.core import data_manager
 from backend.routes import dashboard, forecast, recommended_order, sales_supervision
 
-# Configure logging
-logging.basicConfig(level=LOG_LEVEL, format=LOG_FORMAT)
-logger = logging.getLogger(__name__)
+# Setup production-grade logging
+log_dir = BASE_DIR / 'logs'
+setup_logging(
+    log_level=LOG_LEVEL,
+    log_dir=log_dir,
+    app_name='yaumi_analytics',
+    json_logs=(ENVIRONMENT == 'production'),
+    console_output=True
+)
+
+logger = get_logger(__name__)
+
+
+def validate_environment():
+    """Validate required environment variables on startup"""
+    required_vars = ['DB_SERVER', 'DB_NAME', 'DB_USER', 'DB_PASSWORD']
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+
+    if missing_vars:
+        error_msg = f"Missing required environment variables: {', '.join(missing_vars)}"
+        logger.critical(error_msg)
+        raise ValidationException(
+            error_msg,
+            details={'missing_variables': missing_vars}
+        )
+
+    logger.info("Environment validation successful")
+
+
+# Validate environment on import
+validate_environment()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage application lifecycle"""
-    logger.info("Starting Yaumi Analytics API...")
-    
-    # Initialize data manager on startup
-    logger.info("Initializing data manager...")
-    result = data_manager.initialize()
-    
-    if result['success']:
-        logger.info(f"✓ Data loaded successfully")
-        logger.info(f"  - Demand records: {result['data'].get('merged_demand_rows', 0)}")
-        logger.info(f"  - Customer records: {result['data'].get('customer_rows', 0)}")
-        logger.info(f"  - Journey records: {result['data'].get('journey_rows', 0)}")
-    else:
-        logger.error(f"✗ Data loading failed: {result['errors']}")
-    
-    yield
-    logger.info("Shutting down Yaumi Analytics API...")
+    """
+    Manage application lifecycle with proper initialization and cleanup
+    """
+    logger.info("="*70)
+    logger.info("YAUMI ANALYTICS API - STARTING UP")
+    logger.info(f"Environment: {ENVIRONMENT}")
+    logger.info(f"API Version: 2.0.0")
+    logger.info("="*70)
 
-# Create FastAPI app
+    try:
+        # Initialize data manager on startup
+        logger.info("Initializing data manager...")
+        result = data_manager.initialize()
+
+        if result['success']:
+            logger.info("✓ Data loaded successfully")
+            logger.info(f"  - Demand records: {result['data'].get('merged_demand_rows', 0):,}")
+            logger.info(f"  - Customer records: {result['data'].get('customer_rows', 0):,}")
+            logger.info(f"  - Journey records: {result['data'].get('journey_rows', 0):,}")
+            logger.info(f"  - Date range: {result['data'].get('date_range', {})}")
+        else:
+            logger.error(f"✗ Data loading failed: {result['errors']}")
+            logger.warning("Application started but data is not loaded")
+
+        logger.info("="*70)
+        logger.info("YAUMI ANALYTICS API - READY")
+        logger.info("="*70)
+
+    except Exception as e:
+        logger.critical(f"Failed to initialize application: {e}", exc_info=True)
+        raise
+
+    yield
+
+    # Cleanup on shutdown
+    logger.info("="*70)
+    logger.info("YAUMI ANALYTICS API - SHUTTING DOWN")
+    logger.info("="*70)
+    logger.info("Cleanup completed successfully")
+
+# Create FastAPI app with production configuration
 app = FastAPI(
     title="Yaumi Analytics API",
     version="2.0.0",
     description="Professional Analytics Platform for Yaumi - Demand, Forecast, Recommendations & Supervision",
     lifespan=lifespan,
-    docs_url="/api/docs" if ENVIRONMENT == 'development' else None,  # Disable docs in production
-    redoc_url="/api/redoc" if ENVIRONMENT == 'development' else None
+    docs_url="/api/docs" if ENVIRONMENT == 'development' else None,
+    redoc_url="/api/redoc" if ENVIRONMENT == 'development' else None,
+    openapi_url="/api/openapi.json" if ENVIRONMENT == 'development' else None,
 )
 
-# Security Middleware
-app.add_middleware(GZipMiddleware, minimum_size=1000)  # Compress responses
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=SECRET_KEY,
-    session_cookie="yaumi_session",
-    max_age=3600,  # 1 hour
-    same_site="lax",
-    https_only=ENVIRONMENT == 'production'
-)
+# ============================================================================
+# MIDDLEWARE STACK (Order matters - first added = outermost layer)
+# ============================================================================
 
-# Trusted Host Protection (prevent host header attacks)
-if ENVIRONMENT == 'production':
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=["*.onrender.com", "*.vercel.app", "yaumi.com", "*.yaumi.com"]
-    )
+# 1. Exception Handler (outermost - catches all exceptions)
+app.middleware("http")(exception_handler_middleware)
 
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600
-)
+# 2. Request Logging
+app.middleware("http")(logging_middleware)
 
-# Security Headers
+# 3. Request Validation
+app.middleware("http")(request_validation_middleware)
+
+# 4. Security Headers
 @app.middleware("http")
 async def add_security_headers(request, call_next):
+    """Add security headers to all responses"""
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
     if ENVIRONMENT == 'production':
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'"
+        )
+
     return response
+
+
+# 5. GZip Compression
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# 6. Session Middleware
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_KEY,
+    session_cookie="yaumi_session",
+    max_age=3600,  # 1 hour
+    same_site="lax",
+    https_only=(ENVIRONMENT == 'production')
+)
+
+# 7. Trusted Host Protection (production only)
+if ENVIRONMENT == 'production':
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["*.onrender.com", "*.vercel.app", "yaumi.com", "*.yaumi.com"]
+    )
+
+# 8. CORS Middleware (innermost)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+    expose_headers=["X-Request-ID", "X-Response-Time"],
+    max_age=3600
+)
 
 # Include routers with clean prefixes
 app.include_router(
@@ -132,10 +208,43 @@ app.include_router(
 )
 
 app.include_router(
-    sales_supervision, 
-    prefix=f"{API_PREFIX}/sales-supervision", 
+    sales_supervision,
+    prefix=f"{API_PREFIX}/sales-supervision",
     tags=["👁️ Supervision"]
 )
+
+# Data refresh endpoint
+@app.post(f"{API_PREFIX}/refresh-data")
+async def refresh_data():
+    """Reload all data from database"""
+    try:
+        logger.info("Manual data refresh triggered")
+        result = data_manager.initialize()
+
+        if result['success']:
+            logger.info("Data refresh successful")
+            return {
+                "success": True,
+                "message": "Data refreshed successfully",
+                "data": {
+                    "demand_records": result['data'].get('merged_demand_rows', 0),
+                    "customer_records": result['data'].get('customer_rows', 0),
+                    "journey_records": result['data'].get('journey_rows', 0)
+                }
+            }
+        else:
+            logger.error(f"Data refresh failed: {result['errors']}")
+            return {
+                "success": False,
+                "message": "Data refresh failed",
+                "errors": result['errors']
+            }
+    except Exception as e:
+        logger.error(f"Error during data refresh: {e}")
+        return {
+            "success": False,
+            "message": f"Error: {str(e)}"
+        }
 
 # Root endpoints
 @app.get("/")
@@ -160,25 +269,82 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """
+    Comprehensive health check endpoint
+    Returns service health status including database, data loading, and system info
+    """
+    from backend.database import get_database_manager
+    from backend.config import validate_config
+    import platform
+
+    # Check data manager
     data_status = data_manager.get_summary()
-    return {
-        "status": "healthy" if data_status.get('loaded') else "degraded",
+    data_healthy = data_status.get('loaded', False)
+
+    # Check database
+    db_manager = get_database_manager()
+    db_health = db_manager.health_check()
+    db_healthy = db_health.get('connected', False)
+
+    # Check configuration
+    config_validation = validate_config()
+    config_healthy = config_validation.get('valid', False)
+
+    # Overall health status
+    overall_healthy = data_healthy and db_healthy and config_healthy
+
+    health_response = {
+        "status": "healthy" if overall_healthy else "degraded",
         "service": "Yaumi Analytics API",
         "version": "2.0.0",
-        "data_loaded": data_status.get('loaded', False),
-        "last_refresh": data_status.get('last_refresh'),
-        "records": {
-            "demand": data_status.get('demand_records', 0),
-            "customer": data_status.get('customer_records', 0),
-            "journey": data_status.get('journey_records', 0)
+        "environment": ENVIRONMENT,
+        "timestamp": datetime.now().isoformat(),
+        "checks": {
+            "database": {
+                "status": "healthy" if db_healthy else "unhealthy",
+                "connected": db_healthy,
+                "message": db_health.get('message', '')
+            },
+            "data": {
+                "status": "healthy" if data_healthy else "unhealthy",
+                "loaded": data_healthy,
+                "last_refresh": data_status.get('last_refresh'),
+                "records": {
+                    "demand": data_status.get('demand_records', 0),
+                    "customer": data_status.get('customer_records', 0),
+                    "journey": data_status.get('journey_records', 0)
+                }
+            },
+            "configuration": {
+                "status": "healthy" if config_healthy else "unhealthy",
+                "valid": config_healthy,
+                "issues": config_validation.get('issues', []),
+                "warnings": config_validation.get('warnings', [])
+            }
+        },
+        "system": {
+            "platform": platform.system(),
+            "python_version": platform.python_version(),
         }
     }
 
+    return health_response
+
+
 @app.get(f"{API_PREFIX}/status")
 async def api_status():
-    """Detailed API status"""
-    return data_manager.get_summary()
+    """
+    Detailed API status with data summary
+    """
+    data_summary = data_manager.get_summary()
+
+    return {
+        "service": "Yaumi Analytics API",
+        "version": "2.0.0",
+        "environment": ENVIRONMENT,
+        "data": data_summary,
+        "timestamp": datetime.now().isoformat()
+    }
 
 if __name__ == "__main__":
     import uvicorn

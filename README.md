@@ -5,8 +5,8 @@ Professional analytics platform for demand forecasting, inventory optimization, 
 ## Features
 
 - **Demand Dashboard**: Historical sales analytics and insights
-- **Demand Forecast**: ML-powered predictive analytics
-- **Recommended Orders**: AI-driven order recommendations
+- **Demand Forecast**: Advanced predictive analytics
+- **Recommended Orders**: Intelligent order recommendations
 - **Sales Supervision**: Real-time route monitoring and inventory management
 
 ## Architecture
@@ -154,7 +154,7 @@ npm run build
 ### Backend (.env)
 ```bash
 # Required
-GROQ_API_KEY=your_groq_api_key_here  # Get from https://console.groq.com/keys
+GROQ_API_KEY=your_analytics_api_key_here
 
 # Optional
 LOG_LEVEL=INFO  # Logging level
@@ -175,7 +175,7 @@ VITE_API_URL=http://localhost:8000/api
 - Export capabilities
 
 ### Forecast
-- AI-powered predictions
+- Advanced predictive analytics
 - Daily, weekly, and monthly views
 - Accuracy metrics
 - Trend analysis
@@ -187,12 +187,12 @@ VITE_API_URL=http://localhost:8000/api
 - Historical performance
 
 ### Sales Supervision
-- Real-time sales tracking with AI-powered analytics
+- Real-time sales tracking with analytics engine
 - FMCG-optimized performance scoring (75-120% optimal range)
 - Dynamic inventory redistribution during route execution
 - Customer visit tracking with individual performance analysis
 - Route summary with comprehensive metrics dashboard
-- LLM-powered actionable insights for field supervision
+- Automated actionable insights for field supervision
 
 ## Support
 

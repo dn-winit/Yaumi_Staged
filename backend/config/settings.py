@@ -36,8 +36,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
 
 # Logging
-LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
-LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
 
 # Recommendation System Configuration - Updated to match legacy system
 # Legacy tier configuration (kept for compatibility)
@@ -167,8 +166,49 @@ def get_config() -> Dict[str, Any]:
         },
         'logging': {
             'level': LOG_LEVEL,
-            'format': LOG_FORMAT
         },
         'tiers': TIER_CONFIG,
-        'cache': CACHE_SETTINGS
+        'cache': CACHE_SETTINGS,
+        'environment': ENVIRONMENT
+    }
+
+
+def validate_config() -> Dict[str, Any]:
+    """
+    Validate configuration settings
+
+    Returns:
+        Dictionary with validation results
+    """
+    issues = []
+    warnings = []
+
+    # Validate database configuration
+    for key in ['DRIVER', 'SERVER', 'DATABASE', 'UID', 'PWD']:
+        if not DATABASE_CONFIG.get(key):
+            issues.append(f"Missing database configuration: {key}")
+
+    # Validate directories exist
+    for dir_path in [DATA_DIR, OUTPUT_DIR, CACHE_DIR]:
+        if not dir_path.exists():
+            warnings.append(f"Directory does not exist (will be created): {dir_path}")
+
+    # Validate log level
+    valid_log_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+    if LOG_LEVEL not in valid_log_levels:
+        issues.append(f"Invalid LOG_LEVEL: {LOG_LEVEL}. Must be one of {valid_log_levels}")
+
+    # Validate environment
+    valid_environments = ['development', 'staging', 'production']
+    if ENVIRONMENT not in valid_environments:
+        warnings.append(f"Unusual ENVIRONMENT value: {ENVIRONMENT}")
+
+    # Validate secret key in production
+    if ENVIRONMENT == 'production' and SECRET_KEY == 'dev-secret-key-change-in-production':
+        issues.append("SECRET_KEY must be changed in production environment")
+
+    return {
+        'valid': len(issues) == 0,
+        'issues': issues,
+        'warnings': warnings
     }

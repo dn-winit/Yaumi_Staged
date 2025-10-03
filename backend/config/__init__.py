@@ -1,5 +1,6 @@
 """
 Configuration module for the backend application
+Production-grade configuration with validation
 """
 
 from .settings import (
@@ -11,8 +12,9 @@ from .settings import (
     DATABASE_CONFIG,
     API_PREFIX,
     CORS_ORIGINS,
+    SECRET_KEY,
+    ENVIRONMENT,
     LOG_LEVEL,
-    LOG_FORMAT,
     TIER_CONFIG,
     SQL_QUERIES,
     FILE_PATTERNS,
@@ -26,7 +28,8 @@ from .settings import (
     get_cache_file_path,
     get_output_file_path,
     get_data_file_path,
-    get_config
+    get_config,
+    validate_config
 )
 
 __all__ = [
@@ -38,8 +41,9 @@ __all__ = [
     'DATABASE_CONFIG',
     'API_PREFIX',
     'CORS_ORIGINS',
+    'SECRET_KEY',
+    'ENVIRONMENT',
     'LOG_LEVEL',
-    'LOG_FORMAT',
     'TIER_CONFIG',
     'SQL_QUERIES',
     'FILE_PATTERNS',
@@ -53,5 +57,6 @@ __all__ = [
     'get_cache_file_path',
     'get_output_file_path',
     'get_data_file_path',
-    'get_config'
+    'get_config',
+    'validate_config'
 ]

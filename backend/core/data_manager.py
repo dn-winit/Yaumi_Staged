@@ -4,9 +4,7 @@ Loads all data on startup and provides it to all services
 """
 
 import pandas as pd
-import pyodbc
 from datetime import datetime
-import logging
 from typing import Dict, Any, Optional
 import warnings
 warnings.filterwarnings('ignore')
@@ -17,8 +15,11 @@ from backend.config import (
     get_cache_file_path,
     get_data_file_path
 )
+from backend.database import get_database_manager
+from backend.logging_config import get_logger
+from backend.exceptions import DatabaseException, DataNotLoadedException
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class DataManager:
     """
@@ -60,21 +61,17 @@ class DataManager:
         }
 
         try:
-            # Create connection string
-            connection_string = (
-                f"DRIVER={DATABASE_CONFIG['DRIVER']};"
-                f"SERVER={DATABASE_CONFIG['SERVER']};"
-                f"DATABASE={DATABASE_CONFIG['DATABASE']};"
-                f"UID={DATABASE_CONFIG['UID']};"
-                f"PWD={DATABASE_CONFIG['PWD']}"
-            )
+            # Initialize database manager
+            db_manager = get_database_manager()
+            if not db_manager.is_connected:
+                db_manager.initialize(DATABASE_CONFIG)
 
             # Load each data type
             logger.info("Fetching data from SQL Server...")
 
             # 1. Load demand data
             logger.info("1. Loading demand data...")
-            self.demand_data = self._fetch_sql_data('demand_data', connection_string)
+            self.demand_data = self._fetch_sql_data('demand_data')
             if not self.demand_data.empty:
                 self.demand_data['TrxDate'] = pd.to_datetime(self.demand_data['TrxDate'])
                 result['data']['demand_rows'] = len(self.demand_data)
@@ -84,7 +81,7 @@ class DataManager:
 
             # 2. Load recent demand data
             logger.info("2. Loading recent demand data...")
-            recent_demand = self._fetch_sql_data('recent_demand', connection_string)
+            recent_demand = self._fetch_sql_data('recent_demand')
             if not recent_demand.empty:
                 recent_demand['TrxDate'] = pd.to_datetime(recent_demand['TrxDate'])
                 result['data']['recent_demand_rows'] = len(recent_demand)
@@ -98,7 +95,7 @@ class DataManager:
 
             # 4. Load customer data
             logger.info("4. Loading customer data...")
-            self.customer_data = self._fetch_sql_data('customer_data', connection_string)
+            self.customer_data = self._fetch_sql_data('customer_data')
             if not self.customer_data.empty:
                 self.customer_data['TrxDate'] = pd.to_datetime(self.customer_data['TrxDate'])
                 result['data']['customer_rows'] = len(self.customer_data)
@@ -108,7 +105,7 @@ class DataManager:
 
             # 5. Load journey plan
             logger.info("5. Loading journey plan...")
-            self.journey_plan = self._fetch_sql_data('journey_plan', connection_string)
+            self.journey_plan = self._fetch_sql_data('journey_plan')
             if not self.journey_plan.empty:
                 self.journey_plan['JourneyDate'] = pd.to_datetime(self.journey_plan['JourneyDate'])
                 result['data']['journey_rows'] = len(self.journey_plan)
@@ -142,37 +139,39 @@ class DataManager:
             logger.info(f"Total records loaded: {sum(v for k, v in result['data'].items() if 'rows' in k)}")
             logger.info("="*60)
 
+        except DatabaseException as e:
+            logger.error(f"Database error during initialization: {e}", exc_info=True)
+            result['errors'].append(str(e))
         except Exception as e:
-            logger.error(f"Data initialization failed: {e}")
+            logger.error(f"Data initialization failed: {e}", exc_info=True)
             result['errors'].append(str(e))
 
         return result
 
-    def _fetch_sql_data(self, query_name: str, connection_string: str) -> pd.DataFrame:
-        """Fetch data from SQL Server using dynamic paths"""
+    def _fetch_sql_data(self, query_name: str) -> pd.DataFrame:
+        """Fetch data from SQL Server using DatabaseManager"""
         query_path = get_sql_query_path(query_name)
         cache_file = get_cache_file_path(f'{query_name}.csv')
 
         try:
-            # Try to read SQL query
+            # Try to read SQL query and execute
             if query_path.exists():
-                with open(query_path, 'r') as f:
-                    query = f.read()
+                db_manager = get_database_manager()
+                df = db_manager.execute_query_from_file(str(query_path))
 
-                # Execute query
-                with pyodbc.connect(connection_string) as connection:
-                    df = pd.read_sql(query, connection)
+                # Save to cache
+                if not df.empty:
+                    df.to_csv(cache_file, index=False)
+                    logger.debug(f"Cached {query_name} data: {len(df)} rows")
 
-                    # Save to cache
-                    if not df.empty:
-                        df.to_csv(cache_file, index=False)
-
-                    return df
+                return df
             else:
                 logger.warning(f"SQL query file not found: {query_path}")
 
-        except Exception as e:
+        except DatabaseException as e:
             logger.warning(f"SQL fetch failed for {query_name}: {e}")
+        except Exception as e:
+            logger.warning(f"Unexpected error fetching {query_name}: {e}")
 
         # Try to load from cache
         if cache_file.exists():

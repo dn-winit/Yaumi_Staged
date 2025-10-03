@@ -85,10 +85,10 @@ class ProcessCustomerVisitRequest(BaseModel):
     customer_code: str
     actual_sales: dict  # {item_code: quantity}
 
-# ============= LLM ANALYSIS MODELS =============
+# ============= ANALYSIS MODELS =============
 
 class CustomerAnalysisResponse(BaseModel):
-    """Structured response for customer-level AI analysis"""
+    """Structured response for customer-level analysis"""
     customer_code: str
     performance_summary: str = Field(
         default="",
@@ -124,7 +124,7 @@ class CustomerAnalysisResponse(BaseModel):
     )
 
     class Config:
-        extra = "ignore"  # Ignore extra fields from LLM
+        extra = "ignore"  # Ignore extra fields from analysis
         json_schema_extra = {
             "example": {
                 "customer_code": "C001",
@@ -136,7 +136,7 @@ class CustomerAnalysisResponse(BaseModel):
         }
 
 class RouteAnalysisResponse(BaseModel):
-    """Structured response for route-level AI analysis"""
+    """Structured response for route-level analysis"""
     route_code: str
     route_summary: str = Field(
         default="",
@@ -180,7 +180,7 @@ class RouteAnalysisResponse(BaseModel):
     )
 
     class Config:
-        extra = "ignore"  # Ignore extra fields from LLM
+        extra = "ignore"  # Ignore extra fields from analysis
         json_schema_extra = {
             "example": {
                 "route_code": "R001",

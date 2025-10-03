@@ -470,7 +470,7 @@ async def get_session_summary(filters: SalesSupervisionFilters):
 
 @router.post("/analyze-customer")
 async def analyze_customer_performance(request: Dict[str, Any] = Body(...)):
-    """Generate AI analysis for individual customer performance"""
+    """Generate advanced analysis for individual customer performance"""
     try:
         customer_code = request.get('customer_code')
         route_code = request.get('route_code')
@@ -520,7 +520,7 @@ async def analyze_customer_performance(request: Dict[str, Any] = Body(...)):
         # Calculate SKUs sold
         skus_sold = len(customer_rec_data[customer_rec_data['ActualQuantity'] > 0])
 
-        # Generate AI analysis - now returns structured JSON
+        # Generate advanced analysis - returns structured JSON
         analysis_json = llm_analyzer.analyze_customer_performance(
             customer_code=customer_code,
             route_code=route_code,
@@ -553,7 +553,7 @@ async def analyze_customer_performance(request: Dict[str, Any] = Body(...)):
 
 @router.post("/analyze-customer-with-updates")
 async def analyze_customer_performance_with_updates(request: Dict[str, Any] = Body(...)):
-    """Generate AI analysis for customer with updated actual quantities"""
+    """Generate advanced analysis for customer with updated actual quantities"""
     try:
         customer_code = request.get('customer_code')
         route_code = request.get('route_code')
@@ -606,7 +606,7 @@ async def analyze_customer_performance_with_updates(request: Dict[str, Any] = Bo
                 'actualQuantity': int(item_row['ActualQuantity'])
             })
 
-        # Generate AI analysis - now returns structured JSON
+        # Generate advanced analysis - returns structured JSON
         analysis_json = llm_analyzer.analyze_customer_performance(
             customer_code=customer_code,
             route_code=route_code,
@@ -639,7 +639,7 @@ async def analyze_customer_performance_with_updates(request: Dict[str, Any] = Bo
 
 @router.post("/analyze-route-with-visited-data")
 async def analyze_route_performance_with_visited_data(request: Dict[str, Any] = Body(...)):
-    """Generate AI analysis for route performance using real visited customer data"""
+    """Generate advanced analysis for route performance using real visited customer data"""
     try:
         route_code = request.get('route_code')
         date = request.get('date')
@@ -685,7 +685,7 @@ async def analyze_route_performance_with_visited_data(request: Dict[str, Any] = 
         else:
             route_data = pd.DataFrame()
 
-        # Generate AI analysis - now returns structured JSON
+        # Generate advanced analysis - returns structured JSON
         analysis_json = llm_analyzer.analyze_route_performance(
             route_code=route_code,
             date=date,
@@ -708,14 +708,14 @@ async def analyze_route_performance_with_visited_data(request: Dict[str, Any] = 
         raise HTTPException(status_code=500, detail=f"Failed to generate route analysis: {str(e)}")
 
 
-@router.get("/llm-health")
-async def check_llm_health():
-    """Check LLM service health"""
+@router.get("/analysis-health")
+async def check_analysis_health():
+    """Check analysis service health"""
     try:
         health_status = llm_analyzer.health_check()
         return health_status
     except Exception as e:
-        logger.error(f"Failed to check LLM health: {str(e)}")
+        logger.error(f"Failed to check analysis health: {str(e)}")
         return {
             "status": "error",
             "error": str(e)

@@ -11,8 +11,8 @@ from backend.models.data_models import CustomerAnalysisResponse, RouteAnalysisRe
 
 logger = logging.getLogger(__name__)
 
-class LLMAnalyzer:
-    """LLM-powered analysis service for sales supervision"""
+class AnalysisEngine:
+    """Advanced analysis service for sales supervision"""
 
     def __init__(self, api_key: str = None):
         # Use provided API key or get from environment
@@ -25,9 +25,9 @@ class LLMAnalyzer:
                 self.client = Groq(api_key=self.api_key)
                 self.is_available = True
             except Exception as e:
-                logger.warning(f"Failed to initialize Groq client: {e}")
+                logger.warning(f"Failed to initialize analytics client: {e}")
         else:
-            logger.info("GROQ_API_KEY not set. LLM features will be disabled.")
+            logger.info("GROQ_API_KEY not set. Advanced analysis features will be disabled.")
         self.prompts_dir = Path(__file__).parent.parent / 'prompts'
 
         # Load prompt templates
@@ -108,11 +108,11 @@ class LLMAnalyzer:
         coverage: float = 0.0,
         accuracy: float = 0.0
     ) -> Dict[str, Any]:
-        """Generate AI analysis for customer performance - returns structured JSON"""
+        """Generate advanced analysis for customer performance - returns structured JSON"""
         if not self.is_available:
             return {
                 "customer_code": customer_code,
-                "performance_summary": "AI analysis is not available. Please configure GROQ_API_KEY.",
+                "performance_summary": "Advanced analysis is not available. Please configure API key.",
                 "strengths": [],
                 "weaknesses": [],
                 "likely_reasons": [],
@@ -141,7 +141,7 @@ class LLMAnalyzer:
                 accuracy=accuracy
             )
 
-            # Make LLM call - highly deterministic settings with JSON mode
+            # Make API call with deterministic settings
             completion = self.client.chat.completions.create(
                 model="llama-3.1-8b-instant",
                 messages=[
@@ -184,7 +184,7 @@ class LLMAnalyzer:
                 return validated_response.model_dump()
             except ValidationError as e:
                 logger.error(f"Pydantic validation failed for customer analysis: {e}")
-                logger.error(f"LLM JSON that failed validation: {json.dumps(analysis_json, indent=2)}")
+                logger.error(f"Analysis JSON that failed validation: {json.dumps(analysis_json, indent=2)}")
 
                 # Try to salvage what we can - use the data but ensure all required fields exist
                 safe_response = {
@@ -201,11 +201,11 @@ class LLMAnalyzer:
                 return safe_response
 
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse LLM JSON response after cleanup: {e}")
+            logger.error(f"Failed to parse analysis JSON response after cleanup: {e}")
             logger.error(f"Response text: {response_text[:500]}")
             return {
                 "customer_code": customer_code,
-                "performance_summary": "Analysis generated but JSON parsing failed. The LLM output was malformed. Please try again.",
+                "performance_summary": "Analysis generated but JSON parsing failed. The output was malformed. Please try again.",
                 "strengths": [],
                 "weaknesses": [],
                 "likely_reasons": [],
@@ -218,7 +218,7 @@ class LLMAnalyzer:
             logger.error(f"Failed to generate customer analysis: {e}")
             return {
                 "customer_code": customer_code,
-                "performance_summary": f"Unable to generate AI analysis at this time. Error: {str(e)}",
+                "performance_summary": f"Unable to generate analysis at this time. Error: {str(e)}",
                 "strengths": [],
                 "weaknesses": [],
                 "likely_reasons": [],
@@ -294,11 +294,11 @@ class LLMAnalyzer:
         visited_customers: List[Dict[str, Any]],  # Actual visited customer data
         coverage_metrics: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Generate AI analysis for route performance - returns structured JSON"""
+        """Generate advanced analysis for route performance - returns structured JSON"""
         if not self.is_available:
             return {
                 "route_code": route_code,
-                "route_summary": "AI analysis is not available. Please configure GROQ_API_KEY.",
+                "route_summary": "Advanced analysis is not available. Please configure API key.",
                 "high_performers": [],
                 "needs_attention": [],
                 "route_strengths": [],
@@ -334,7 +334,7 @@ class LLMAnalyzer:
                 actual_data=actual_data
             )
 
-            # Make LLM call with highly deterministic settings and JSON mode
+            # Make API call with deterministic settings
             completion = self.client.chat.completions.create(
                 model="llama-3.1-8b-instant",
                 messages=[
@@ -376,7 +376,7 @@ class LLMAnalyzer:
                 return validated_response.model_dump()
             except ValidationError as e:
                 logger.error(f"Pydantic validation failed for route analysis: {e}")
-                logger.error(f"LLM JSON that failed validation: {json.dumps(analysis_json, indent=2)}")
+                logger.error(f"Analysis JSON that failed validation: {json.dumps(analysis_json, indent=2)}")
 
                 # Try to salvage what we can - use the data but ensure all required fields exist
                 safe_response = {
@@ -395,11 +395,11 @@ class LLMAnalyzer:
                 return safe_response
 
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse route LLM JSON response after cleanup: {e}")
+            logger.error(f"Failed to parse route analysis JSON response after cleanup: {e}")
             logger.error(f"Response text: {response_text[:500]}")
             return {
                 "route_code": route_code,
-                "route_summary": "Analysis generated but JSON parsing failed. The LLM output was malformed. Please try again.",
+                "route_summary": "Analysis generated but JSON parsing failed. The output was malformed. Please try again.",
                 "high_performers": [],
                 "needs_attention": [],
                 "route_strengths": [],
@@ -427,11 +427,11 @@ class LLMAnalyzer:
             }
 
     def health_check(self) -> Dict[str, Any]:
-        """Check if the LLM service is working properly"""
+        """Check if the analysis service is working properly"""
         if not self.is_available:
             return {
                 "status": "disabled",
-                "message": "LLM service is disabled. Set GROQ_API_KEY to enable.",
+                "message": "Analysis service is disabled. Set GROQ_API_KEY to enable.",
                 "prompt_loaded": bool(self.customer_prompt)
             }
 
@@ -457,4 +457,7 @@ class LLMAnalyzer:
             }
 
 # Create a global instance - always succeeds
-llm_analyzer = LLMAnalyzer()
+analysis_engine = AnalysisEngine()
+
+# Maintain backward compatibility
+llm_analyzer = analysis_engine

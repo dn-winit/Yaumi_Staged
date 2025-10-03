@@ -1,4 +1,4 @@
-# 🚀 GitHub Setup Instructions
+# GitHub Setup Instructions
 
 ## Step 1: Create GitHub Repository
 
@@ -37,7 +37,7 @@ After pushing, check:
 1. **No .env files in repo**:
    - Go to GitHub repo
    - Search for ".env" (should only find .env.example)
-   
+
 2. **No credentials visible**:
    - Check `backend/config/settings.py`
    - Should only see `os.getenv()` calls
@@ -51,35 +51,35 @@ After pushing, check:
 
 For team projects:
 
-1. Go to **Settings** → **Branches**
+1. Go to **Settings** -> **Branches**
 2. Click **"Add rule"**
 3. Branch name pattern: `main`
 4. Enable:
-   - ✅ Require pull request reviews before merging
-   - ✅ Require status checks to pass
-   - ✅ Include administrators
+   - Require pull request reviews before merging
+   - Require status checks to pass
+   - Include administrators
 
 ## Step 5: Add Collaborators (Optional)
 
-1. Go to **Settings** → **Collaborators**
+1. Go to **Settings** -> **Collaborators**
 2. Click **"Add people"**
 3. Enter GitHub username/email
 4. Set permissions (Write/Maintain/Admin)
 
-## 🔐 Security Reminders
+## Security Reminders
 
-- ✅ Repository is PRIVATE
-- ✅ No .env files committed
-- ✅ No credentials in code
-- ✅ .gitignore protects sensitive files
-- ✅ All secrets in .env.example are placeholders
+- Repository is PRIVATE
+- No .env files committed
+- No credentials in code
+- .gitignore protects sensitive files
+- All secrets in .env.example are placeholders
 
 ## Next Steps
 
 After pushing to GitHub:
 
-1. **Deploy Backend**: Follow `DEPLOYMENT.md` → Step 1
-2. **Deploy Frontend**: Follow `DEPLOYMENT.md` → Step 2
+1. **Deploy Backend**: Follow `DEPLOYMENT.md` -> Step 1
+2. **Deploy Frontend**: Follow `DEPLOYMENT.md` -> Step 2
 3. **Configure Monitoring**: Set up UptimeRobot
 4. **Team Notification**: Share deployment URLs
 
@@ -100,16 +100,16 @@ git remote add origin https://github.com/YOUR_USERNAME/Yaumi_Live.git
 git remote set-url origin https://github.com/YOUR_USERNAME/Yaumi_Live.git
 ```
 
-**Q: I see .env in GitHub!**
+**Q: I see .env in GitHub**
 ```bash
 # Remove it immediately
 git rm --cached backend/.env
 git commit -m "Remove .env file"
 git push origin main
 
-# Then change your database password!
+# Then change your database password
 ```
 
 ---
 
-**Your code is ready to push! 🎉**
+**Your code is ready to push**
