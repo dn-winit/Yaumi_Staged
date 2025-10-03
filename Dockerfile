@@ -19,16 +19,17 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy application files
-COPY backend/requirements.txt /app/requirements.txt
+COPY backend/requirements.txt /app/backend/requirements.txt
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 
 # Copy the rest of the backend code
-COPY backend /app
+COPY backend /app/backend
 
 # Expose port (Render will set PORT env var)
 EXPOSE 10000
 
-# Run the application
+# Run the application from backend directory
+WORKDIR /app/backend
 CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000} --workers 1
