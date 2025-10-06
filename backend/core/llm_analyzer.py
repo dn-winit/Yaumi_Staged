@@ -58,8 +58,12 @@ class AnalysisEngine:
 
         # Add each item as a row
         for _, row in customer_data.iterrows():
+            # Sanitize item name to prevent JSON issues
+            item_name = str(row['ItemName'])[:35]
+            item_name = item_name.replace('"', 'inch').replace("'", '').replace('\n', ' ').replace('\r', ' ')
+
             line = f"{str(row['ItemCode'])[:11]:<11} | "
-            line += f"{str(row['ItemName'])[:35]:<35} | "
+            line += f"{item_name:<35} | "
             line += f"{str(row.get('Tier', 'N/A'))[:13]:<13} | "
             line += f"{str(row.get('VanLoad', 0))[:7]:<7} | "
             line += f"{row.get('PriorityScore', 0):.<13.1f} | "
@@ -84,6 +88,8 @@ class AnalysisEngine:
         for item in items_data:
             item_code = str(item.get('itemCode', 'N/A'))
             item_name = str(item.get('itemName', 'Unknown'))
+            # Sanitize item name: replace problematic characters that break JSON
+            item_name = item_name.replace('"', 'inch').replace("'", '').replace('\n', ' ').replace('\r', ' ')
             actual = str(item.get('actualQuantity', 0))
             recommended = str(item.get('recommendedQuantity', 0))
 
