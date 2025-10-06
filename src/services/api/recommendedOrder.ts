@@ -10,11 +10,13 @@ import { RecommendedOrderFilters, FilterOptions, ApiResponse, RecommendedOrderDa
 const endpoints = config.endpoints.recommendedOrder;
 
 export const recommendedOrderAPI = {
-  // Generate recommendations
+  // Generate recommendations (with extended timeout)
   generateRecommendations: async (
     request: GenerateRecommendationsRequest
   ): Promise<{ message?: string; generated?: boolean; recommendations_count?: number }> => {
-    return (await apiClient.post(endpoints.generate, request)) as unknown as {
+    return (await apiClient.post(endpoints.generate, request, {
+      timeout: 120000 // 2 minutes for recommendation generation
+    })) as unknown as {
       message?: string;
       generated?: boolean;
       recommendations_count?: number;
@@ -47,9 +49,11 @@ export const recommendedOrderAPI = {
     return await apiClient.get(endpoints.filterOptions);
   },
 
-  // Get recommendations data with filters
+  // Get recommendations data with filters (with extended timeout for generation)
   getRecommendationsData: async (filters: RecommendedOrderFilters): Promise<ApiResponse<RecommendedOrderDataPoint>> => {
-    return await apiClient.post(endpoints.data, filters);
+    return await apiClient.post(endpoints.data, filters, {
+      timeout: 120000 // 2 minutes for recommendation generation
+    });
   },
 };
 
