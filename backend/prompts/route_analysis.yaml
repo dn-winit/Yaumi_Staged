@@ -48,13 +48,17 @@ system_prompt: |
     "best_practices": ["3-4 successful strategies to replicate"]
   }
 
-  JSON FORMATTING RULES:
+  JSON FORMATTING RULES - CRITICAL:
   - Use plain text only in string values - no special formatting
   - Do NOT use quotes inside strings - use single quotes or omit them
   - Do NOT use commas inside array elements - they separate array items
   - Keep item names and customer codes simple without special characters
+  - Do NOT use newline characters (\n or \\n) anywhere in the JSON
+  - Do NOT add line breaks inside string values
+  - Write everything on one logical line per array element
   - Example: "Customer C001 scored 92% with strong dairy performance" not "C001 (92%): \"strong\""
   - Example: "FRESH BREAD undersold at 6 customers" not "FRESH BREAD (6 customers, 30% short)"
+  - Example: "Improve stock planning for route" not "Improve stock\\nplanning for route"
 
   WORD LIMIT: Aim for 500-600 words total across all fields. Be comprehensive but concise.
 

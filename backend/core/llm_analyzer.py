@@ -141,21 +141,39 @@ class AnalysisEngine:
                 accuracy=accuracy
             )
 
-            # Make API call with deterministic settings
-            completion = self.client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=[
-                    {"role": "system", "content": self.customer_prompt.get('system_prompt', '')},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.0,  # Maximum determinism
-                max_tokens=2000,
-                top_p=0.1,  # Very focused sampling
-                frequency_penalty=0.0,
-                presence_penalty=0.0,
-                seed=42,
-                response_format={"type": "json_object"}
-            )
+            # Make API call with deterministic settings and retry logic
+            max_retries = 2
+            last_error = None
+
+            for attempt in range(max_retries):
+                try:
+                    completion = self.client.chat.completions.create(
+                        model="llama-3.1-8b-instant",
+                        messages=[
+                            {"role": "system", "content": self.customer_prompt.get('system_prompt', '')},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.0,  # Maximum determinism
+                        max_tokens=2000,
+                        top_p=0.1,  # Very focused sampling
+                        frequency_penalty=0.0,
+                        presence_penalty=0.0,
+                        seed=42 + attempt,  # Vary seed on retry
+                        response_format={"type": "json_object"}
+                    )
+                    break  # Success, exit retry loop
+                except Exception as e:
+                    last_error = e
+                    error_str = str(e)
+                    if "json_validate_failed" in error_str and attempt < max_retries - 1:
+                        logger.warning(f"JSON validation failed on attempt {attempt + 1}, retrying with adjusted parameters...")
+                        continue
+                    else:
+                        raise  # Re-raise if not JSON error or last attempt
+            else:
+                # All retries failed
+                if last_error:
+                    raise last_error
 
             # Parse JSON response
             response_text = completion.choices[0].message.content
@@ -334,21 +352,39 @@ class AnalysisEngine:
                 actual_data=actual_data
             )
 
-            # Make API call with deterministic settings
-            completion = self.client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=[
-                    {"role": "system", "content": self.route_prompt.get('system_prompt', '')},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.0,  # Maximum determinism
-                max_tokens=3000,
-                top_p=0.1,  # Very focused sampling
-                frequency_penalty=0.0,
-                presence_penalty=0.0,
-                seed=42,
-                response_format={"type": "json_object"}
-            )
+            # Make API call with deterministic settings and retry logic
+            max_retries = 2
+            last_error = None
+
+            for attempt in range(max_retries):
+                try:
+                    completion = self.client.chat.completions.create(
+                        model="llama-3.1-8b-instant",
+                        messages=[
+                            {"role": "system", "content": self.route_prompt.get('system_prompt', '')},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.0,  # Maximum determinism
+                        max_tokens=3000,
+                        top_p=0.1,  # Very focused sampling
+                        frequency_penalty=0.0,
+                        presence_penalty=0.0,
+                        seed=42 + attempt,  # Vary seed on retry
+                        response_format={"type": "json_object"}
+                    )
+                    break  # Success, exit retry loop
+                except Exception as e:
+                    last_error = e
+                    error_str = str(e)
+                    if "json_validate_failed" in error_str and attempt < max_retries - 1:
+                        logger.warning(f"Route JSON validation failed on attempt {attempt + 1}, retrying...")
+                        continue
+                    else:
+                        raise  # Re-raise if not JSON error or last attempt
+            else:
+                # All retries failed
+                if last_error:
+                    raise last_error
 
             # Parse JSON response
             response_text = completion.choices[0].message.content

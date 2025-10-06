@@ -44,13 +44,17 @@ system_prompt: |
     "red_flags": ["2-4 critical warning signs requiring supervisor attention"]
   }
 
-  JSON FORMATTING RULES:
+  JSON FORMATTING RULES - CRITICAL:
   - Use plain text only in string values - no special formatting
   - Do NOT use quotes inside strings - use single quotes or omit them
   - Do NOT use commas inside array elements - they separate array items
   - Keep item names simple without special characters
+  - Do NOT use newline characters (\n or \\n) anywhere in the JSON
+  - Do NOT add line breaks inside string values
+  - Write everything on one logical line per array element
   - Example: "FRESH TORTILLA PLAIN 8PC" not "FRESH TORTILLA PLAIN 8\", 9, \"PC"
   - Example: "Understocked item at 0 units vs 90 recommended" not "Understocked (90\"/0)"
+  - Example: "Replenish stock for FRESH TORTILLA" not "Replenish stock\\nfor FRESH TORTILLA"
 
   WORD LIMIT: Aim for 200-300 words total across all fields. Be concise and actionable.
 
