@@ -153,7 +153,7 @@ export const salesSupervisionAPI = {
     });
   },
 
-  // Analyze individual customer performance
+  // Analyze individual customer performance (with extended timeout for LLM)
   analyzeCustomerPerformance: async (
     routeCode: string,
     date: string,
@@ -163,10 +163,12 @@ export const salesSupervisionAPI = {
       route_code: routeCode,
       date: date,
       customer_code: customerCode
+    }, {
+      timeout: 60000 // 1 minute for LLM analysis
     });
   },
 
-  // Analyze customer performance with updated actual quantities
+  // Analyze customer performance with updated actual quantities (with extended timeout for LLM)
   analyzeCustomerPerformanceWithUpdates: async (
     routeCode: string,
     date: string,
@@ -178,10 +180,12 @@ export const salesSupervisionAPI = {
       date: date,
       customer_code: customerCode,
       actual_quantities: actualQuantities
+    }, {
+      timeout: 60000 // 1 minute for LLM analysis
     });
   },
 
-  // Analyze route performance with real visited customer data
+  // Analyze route performance with real visited customer data (with extended timeout for LLM)
   analyzeRoutePerformanceWithVisitedData: async (
     routeCode: string,
     date: string,
@@ -193,6 +197,8 @@ export const salesSupervisionAPI = {
       date: date,
       all_customers: allCustomers,
       visited_customers_data: visitedCustomersData
+    }, {
+      timeout: 60000 // 1 minute for LLM analysis
     });
   },
 
