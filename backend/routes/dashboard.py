@@ -10,19 +10,22 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend.core import data_manager
 from backend.models.data_models import DashboardFilters, HistoricalAverages, FilterOptions
 from backend.utils.data_processor import filter_dashboard_data, aggregate_by_period, get_filter_options
+from backend.utils.http_cache import cached_response
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-@router.get("/filter-options", response_model=FilterOptions)
+@router.get("/filter-options")
 async def get_filter_options_endpoint():
-    """Get available filter options"""
+    """Get available filter options with HTTP caching"""
     if not data_manager.is_loaded:
         raise HTTPException(status_code=503, detail="Data not loaded yet")
-    
+
     dashboard_data = data_manager.get_demand_data()
     options = get_filter_options(dashboard_data)
-    return FilterOptions(**options)
+
+    # Return with HTTP caching headers for better performance
+    return cached_response(options, cache_type="filter_options")
 
 @router.post("/dashboard-data")
 async def get_dashboard_data(filters: DashboardFilters):

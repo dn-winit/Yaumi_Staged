@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RotateCcw, Search, ShoppingCart } from 'lucide-react';
 
 import MultiSelect from '../common/MultiSelect';
 import { RecommendedOrderFilters } from '../../types';
 import { generateRecommendations, getRecommendedOrderData } from '../../services/api';
+import { useDebounce } from '../../hooks/useDebounce';
 
 interface RecommendedOrderFiltersProps {
   onFiltersSubmit: (filters: RecommendedOrderFilters & {
@@ -28,6 +29,16 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
     customers: { code: string; name: string; }[];
     items: { code: string; name: string; }[];
   }>({ routes: [], customers: [], items: [] });
+
+  // Debounce customer code changes to reduce API calls (300ms delay)
+  const debouncedCustomerCodes = useDebounce(filters.customerCodes, 300);
+
+  // Load filter options when debounced customer codes change
+  useEffect(() => {
+    if (step === 'filters-ready' && debouncedCustomerCodes) {
+      loadFilterOptions(debouncedCustomerCodes);
+    }
+  }, [debouncedCustomerCodes, step]);
 
   const fetchRecommendationData = async (payload: RecommendedOrderFilters) => {
     const response = await getRecommendedOrderData(payload);
@@ -286,8 +297,9 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
               <MultiSelect
                 value={filters.customerCodes || []}
                 onChange={(value) => {
+                  // Update filters immediately for UI responsiveness
+                  // But API call is debounced via useEffect hook above
                   setFilters({ ...filters, customerCodes: value });
-                  loadFilterOptions(value);
                 }}
                 options={[
                   { value: 'All', label: 'All Customers' },

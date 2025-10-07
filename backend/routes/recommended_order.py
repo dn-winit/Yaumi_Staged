@@ -5,6 +5,7 @@ from backend.core import data_manager
 from backend.core.priority_calculator import PriorityCalculator
 from backend.core.cycle_calculator import IntelligentCycleCalculator
 from backend.config import OUTPUT_DIR, QUANTITY_PARAMS, NEW_CUSTOMER_PARAMS, MAX_DAYS_SINCE_PURCHASE
+from backend.utils.http_cache import cached_response
 import pandas as pd
 import numpy as np
 import os
@@ -476,11 +477,13 @@ async def get_recommended_order_filter_options(
                     for _, row in items_data.iterrows()]
             items = sorted(items, key=lambda x: x['code'])
         
-        return {
+        # Return with HTTP caching headers for better performance
+        response_data = {
             "routes": routes,
             "items": items,
             "customers": customers
         }
+        return cached_response(response_data, cache_type="filter_options")
     except HTTPException as e:
         raise e
     except Exception as e:

@@ -70,11 +70,45 @@ def validate_environment():
 # Validate environment on import
 validate_environment()
 
+from fastapi import BackgroundTasks
+import asyncio
+
+# Background data loading task
+_data_loading_task = None
+_data_loading_complete = False
+
+
+async def load_data_in_background():
+    """Load data in background without blocking server startup"""
+    global _data_loading_complete
+
+    try:
+        logger.info("Background data loading started...")
+        result = data_manager.initialize()
+
+        if result['success']:
+            logger.info("✓ Background data loading completed successfully")
+            logger.info(f"  - Demand records: {result['data'].get('merged_demand_rows', 0):,}")
+            logger.info(f"  - Customer records: {result['data'].get('customer_rows', 0):,}")
+            logger.info(f"  - Journey records: {result['data'].get('journey_rows', 0):,}")
+            logger.info(f"  - Date range: {result['data'].get('date_range', {})}")
+            _data_loading_complete = True
+        else:
+            logger.error(f"✗ Background data loading failed: {result['errors']}")
+            _data_loading_complete = False
+
+    except Exception as e:
+        logger.error(f"Error in background data loading: {e}", exc_info=True)
+        _data_loading_complete = False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Manage application lifecycle with proper initialization and cleanup
+    Manage application lifecycle with lazy data loading
     """
+    global _data_loading_task
+
     logger.info("="*70)
     logger.info("YAUMI ANALYTICS API - STARTING UP")
     logger.info(f"Environment: {ENVIRONMENT}")
@@ -82,26 +116,17 @@ async def lifespan(app: FastAPI):
     logger.info("="*70)
 
     try:
-        # Initialize data manager on startup
-        logger.info("Initializing data manager...")
-        result = data_manager.initialize()
-
-        if result['success']:
-            logger.info("✓ Data loaded successfully")
-            logger.info(f"  - Demand records: {result['data'].get('merged_demand_rows', 0):,}")
-            logger.info(f"  - Customer records: {result['data'].get('customer_rows', 0):,}")
-            logger.info(f"  - Journey records: {result['data'].get('journey_rows', 0):,}")
-            logger.info(f"  - Date range: {result['data'].get('date_range', {})}")
-        else:
-            logger.error(f"✗ Data loading failed: {result['errors']}")
-            logger.warning("Application started but data is not loaded")
+        # Start data loading in background (non-blocking)
+        logger.info("Starting background data loading...")
+        _data_loading_task = asyncio.create_task(load_data_in_background())
 
         logger.info("="*70)
         logger.info("YAUMI ANALYTICS API - READY")
+        logger.info("Data is loading in background...")
         logger.info("="*70)
 
     except Exception as e:
-        logger.critical(f"Failed to initialize application: {e}", exc_info=True)
+        logger.critical(f"Failed to start application: {e}", exc_info=True)
         raise
 
     yield
@@ -110,6 +135,21 @@ async def lifespan(app: FastAPI):
     logger.info("="*70)
     logger.info("YAUMI ANALYTICS API - SHUTTING DOWN")
     logger.info("="*70)
+
+    # Wait for background task to complete or cancel it
+    if _data_loading_task and not _data_loading_task.done():
+        logger.info("Waiting for background data loading to complete...")
+        try:
+            await asyncio.wait_for(_data_loading_task, timeout=10)
+        except asyncio.TimeoutError:
+            logger.warning("Background task did not complete in time, cancelling...")
+            _data_loading_task.cancel()
+
+    # Close database pool
+    from backend.database import get_database_manager
+    db_manager = get_database_manager()
+    db_manager.close_pool()
+
     logger.info("Cleanup completed successfully")
 
 # Create FastAPI app with production configuration
@@ -276,10 +316,18 @@ async def health_check():
     from backend.database import get_database_manager
     from backend.config import validate_config
     import platform
+    from datetime import datetime
+
+    global _data_loading_complete, _data_loading_task
 
     # Check data manager
     data_status = data_manager.get_summary()
     data_healthy = data_status.get('loaded', False)
+
+    # Check background loading status
+    loading_status = "complete" if _data_loading_complete else "in_progress"
+    if _data_loading_task and _data_loading_task.done() and not _data_loading_complete:
+        loading_status = "failed"
 
     # Check database
     db_manager = get_database_manager()
@@ -290,8 +338,8 @@ async def health_check():
     config_validation = validate_config()
     config_healthy = config_validation.get('valid', False)
 
-    # Overall health status
-    overall_healthy = data_healthy and db_healthy and config_healthy
+    # Overall health status - server is healthy even if data is still loading
+    overall_healthy = db_healthy and config_healthy
 
     health_response = {
         "status": "healthy" if overall_healthy else "degraded",
@@ -303,11 +351,14 @@ async def health_check():
             "database": {
                 "status": "healthy" if db_healthy else "unhealthy",
                 "connected": db_healthy,
-                "message": db_health.get('message', '')
+                "message": db_health.get('message', ''),
+                "pool_size": db_health.get('pool_size'),
+                "current_connections": db_health.get('current_connections')
             },
             "data": {
-                "status": "healthy" if data_healthy else "unhealthy",
+                "status": "healthy" if data_healthy else ("loading" if loading_status == "in_progress" else "unhealthy"),
                 "loaded": data_healthy,
+                "loading_status": loading_status,
                 "last_refresh": data_status.get('last_refresh'),
                 "records": {
                     "demand": data_status.get('demand_records', 0),
