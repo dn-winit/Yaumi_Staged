@@ -4,6 +4,7 @@ from backend.models.data_models import RecommendedOrderFilters, GenerateRecommen
 from backend.core import data_manager
 from backend.core.priority_calculator import PriorityCalculator
 from backend.core.cycle_calculator import IntelligentCycleCalculator
+from backend.core.recommendation_storage import get_recommendation_storage
 from backend.config import OUTPUT_DIR, QUANTITY_PARAMS, NEW_CUSTOMER_PARAMS, MAX_DAYS_SINCE_PURCHASE
 from backend.utils.http_cache import cached_response
 import pandas as pd
@@ -147,9 +148,6 @@ class TieredRecommendationSystem:
     def _generate_recommendations(self, customer_df, journey_customers,
                                  van_items, item_names, route_code, target_date, actual_quantities):
         """Generate tiered recommendations using unified priority system"""
-        import time
-        start_time = time.time()
-
         # Ensure target_date is provided for deterministic generation
         if not target_date:
             raise ValueError("target_date is required for deterministic recommendations")
@@ -158,7 +156,6 @@ class TieredRecommendationSystem:
         recommendations = []
 
         # OPTIMIZATION: Pre-compute all customer-item histories as nested dictionary for O(1) lookup
-        precompute_start = time.time()
         customer_item_histories = {}
         for customer in journey_customers:
             cust_history = customer_df[customer_df['CustomerCode'] == customer]
@@ -171,10 +168,7 @@ class TieredRecommendationSystem:
             else:
                 customer_item_histories[customer] = None
 
-        print(f"[TIMING] Pre-computation took: {time.time() - precompute_start:.2f}s")
-
         # Sort customers for consistent processing order
-        loop_start = time.time()
         for customer in sorted(journey_customers):
             # Get pre-computed customer data
             customer_data = customer_item_histories[customer]
@@ -261,11 +255,7 @@ class TieredRecommendationSystem:
                         'FrequencyPercent': round(frequency_percent, 1)
                     })
 
-        print(f"[TIMING] Main loop (all customers/items) took: {time.time() - loop_start:.2f}s")
-        print(f"[TIMING] Generated {len(recommendations)} recommendations")
-
         # Convert to DataFrame and sort by priority
-        df_start = time.time()
         df = pd.DataFrame(recommendations)
         if not df.empty:
             df = df.sort_values(['CustomerCode', 'PriorityScore'], ascending=[True, False])
@@ -281,9 +271,6 @@ class TieredRecommendationSystem:
                 'PurchaseCycleDays', 'FrequencyPercent'
             ]
             df = df[column_order]
-
-        print(f"[TIMING] DataFrame operations took: {time.time() - df_start:.2f}s")
-        print(f"[TIMING] Total generation time: {time.time() - start_time:.2f}s")
 
         return df
     
@@ -570,28 +557,128 @@ async def generate_recommendations(request: GenerateRecommendationsRequest):
         raise HTTPException(status_code=500, detail=f"Failed to generate recommendations: {str(e)}")
 
 
+@router.post("/pre-generate-daily")
+async def pre_generate_daily_recommendations(
+    date: str = Query(..., description="Target date (YYYY-MM-DD)"),
+    route_code: str = Query(default="1004", description="Route code (default: 1004)")
+):
+    """
+    Pre-generate recommendations for a specific date and save to database
+
+    **Use Case:** Called by cron job nightly (3 AM Gulf/Asia time)
+
+    **Benefits:**
+    - Users get instant responses (< 1 second)
+    - No waiting time during business hours
+    - Consistent data throughout the day
+
+    **Cron Schedule:** Run daily at 3:00 AM local time
+    - For UAE/Saudi (UTC+4): 11:00 PM UTC previous day
+    - For Pakistan/India (UTC+5): 10:00 PM UTC previous day
+
+    **Example:** curl -X POST "https://yaumi-live.onrender.com/api/v1/recommended-order/pre-generate-daily?date=2025-10-08"
+    """
+    try:
+        # Check if data manager is loaded
+        if not data_manager.is_loaded:
+            raise HTTPException(
+                status_code=503,
+                detail="Data not loaded yet. Please wait for data initialization."
+            )
+
+        # Validate date format
+        try:
+            parsed_date = datetime.strptime(date, '%Y-%m-%d')
+            target_date = parsed_date.strftime('%Y-%m-%d')
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid date format. Use YYYY-MM-DD format (e.g., 2025-10-08)"
+            )
+
+        storage = get_recommendation_storage()
+
+        # Check if already exists
+        exists = storage.check_exists(target_date, route_code)
+        if exists:
+            info = storage.get_generation_info(target_date)
+            return {
+                "success": True,
+                "message": f"Recommendations already exist for {target_date}",
+                "action": "skipped",
+                "date": target_date,
+                "route_code": route_code,
+                "existing_records": info.get('total_records', 0),
+                "generated_at": info.get('generated_at')
+            }
+
+        # Generate recommendations
+        print(f"[CRON] Starting recommendation generation for {target_date}, route {route_code}")
+        start_time = datetime.now()
+
+        system = TieredRecommendationSystem()
+        recommendations_df = system.process_recommendations(target_date, route_code)
+
+        if recommendations_df.empty:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No data available to generate recommendations for {target_date}"
+            )
+
+        # Save to database
+        save_result = storage.save_recommendations(recommendations_df, target_date, route_code)
+
+        generation_time = (datetime.now() - start_time).total_seconds()
+
+        if save_result['success']:
+            print(f"[CRON] Successfully saved {save_result['records_saved']} recommendations for {target_date}")
+            return {
+                "success": True,
+                "message": f"Successfully generated and saved recommendations for {target_date}",
+                "action": "generated",
+                "date": target_date,
+                "route_code": route_code,
+                "records_saved": save_result['records_saved'],
+                "generation_time_seconds": round(generation_time, 2),
+                "generated_at": save_result['generated_at']
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to save recommendations: {save_result['message']}"
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[CRON] Error during pre-generation: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Pre-generation failed: {str(e)}"
+        )
+
+
 @router.post("/get-recommendations-data")
 async def get_recommended_order_data(filters: RecommendedOrderFilters):
-    """Get recommended order data with multi-select filtering and customer-based aggregation"""
+    """
+    Get recommended order data with multi-select filtering
+    Fetches from database for instant response, generates on-demand if not found
+    """
     try:
         # Check if data manager is loaded
         if not data_manager.is_loaded:
             raise HTTPException(status_code=503, detail="Data not loaded yet. Please wait for data initialization.")
 
         target_date = filters.date
+        storage = get_recommendation_storage()
 
-        # Check if we have generated recommendations for this date
-        output_dir = OUTPUT_DIR / 'recommendations'
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Try to fetch from database first (FAST - instant response)
+        recommendations_df = storage.get_recommendations(target_date)
+        data_source = "database"
 
-        filename = f"recommended_order_{target_date.replace('-', '')}.csv"
-        output_file = output_dir / filename
-
-        file_exists = os.path.exists(output_file)
-        data_source = "loaded"
-
-        if not file_exists:
-            print(f"[INFO] No existing file found for {target_date}, generating new recommendations...")
+        if recommendations_df.empty:
+            # Not in database - generate on demand (SLOW - first time only)
+            print(f"[INFO] No recommendations in database for {target_date}, generating...")
 
             try:
                 system = TieredRecommendationSystem()
@@ -601,15 +688,19 @@ async def get_recommended_order_data(filters: RecommendedOrderFilters):
                     raise HTTPException(status_code=404, detail=f"No data available for {target_date}")
 
                 print(f"Generated {len(recommendations_df)} recommendations for {target_date}")
+
+                # Save to database for next time
+                save_result = storage.save_recommendations(recommendations_df, target_date, '1004')
+                if save_result['success']:
+                    print(f"[INFO] Saved {save_result['records_saved']} recommendations to database")
+
                 data_source = "generated"
 
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Failed to generate recommendations for {target_date}: {str(e)}")
         else:
-            print(f"[INFO] Found existing recommendations for {target_date}")
-            recommendations_df = pd.read_csv(output_file)
-            print(f"[INFO] Loaded {len(recommendations_df)} recommendations from file")
-            data_source = "loaded"
+            print(f"[INFO] Loaded {len(recommendations_df)} recommendations from database for {target_date}")
+            data_source = "database"
 
         # Apply filters
         filtered_df = recommendations_df.copy()
