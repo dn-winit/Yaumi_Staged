@@ -124,6 +124,10 @@ class RecommendationStorage:
             DataFrame with recommendations or empty DataFrame if not found
         """
         try:
+            # Convert date string to proper format for SQL Server
+            from datetime import datetime
+            date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+
             query = f"""
                 SELECT
                     trx_date AS TrxDate,
@@ -142,13 +146,13 @@ class RecommendationStorage:
                     frequency_percent AS FrequencyPercent,
                     generated_at
                 FROM {self.table_name}
-                WHERE trx_date = ?
+                WHERE CAST(trx_date AS DATE) = ?
                   AND is_active = 1
                   {f"AND route_code = '{route_code}'" if route_code else ""}
                 ORDER BY customer_code, priority_score DESC
             """
 
-            df = self.db_manager.execute_query(query, (date,))
+            df = self.db_manager.execute_query(query, (date_obj,))
 
             if not df.empty:
                 logger.info(f"Retrieved {len(df)} recommendations from database for {date}")
@@ -173,15 +177,19 @@ class RecommendationStorage:
             True if recommendations exist, False otherwise
         """
         try:
+            # Convert date string to proper format
+            from datetime import datetime
+            date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+
             query = f"""
                 SELECT COUNT(*) as count
                 FROM {self.table_name}
-                WHERE trx_date = ?
+                WHERE CAST(trx_date AS DATE) = ?
                   AND is_active = 1
                   {f"AND route_code = '{route_code}'" if route_code else ""}
             """
 
-            result = self.db_manager.execute_query(query, (date,))
+            result = self.db_manager.execute_query(query, (date_obj,))
 
             if not result.empty:
                 count = result.iloc[0]['count']
@@ -204,6 +212,10 @@ class RecommendationStorage:
             Dictionary with generation metadata
         """
         try:
+            # Convert date string to proper format
+            from datetime import datetime
+            date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+
             query = f"""
                 SELECT
                     COUNT(*) as total_records,
@@ -214,10 +226,10 @@ class RecommendationStorage:
                     MAX(generated_at) as last_generated,
                     MAX(generated_by) as generated_by
                 FROM {self.table_name}
-                WHERE trx_date = ? AND is_active = 1
+                WHERE CAST(trx_date AS DATE) = ? AND is_active = 1
             """
 
-            result = self.db_manager.execute_query(query, (date,))
+            result = self.db_manager.execute_query(query, (date_obj,))
 
             if not result.empty and result.iloc[0]['total_records'] > 0:
                 row = result.iloc[0]

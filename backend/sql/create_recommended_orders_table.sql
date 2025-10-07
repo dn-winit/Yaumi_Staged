@@ -5,9 +5,17 @@
 USE [YaumiAIML];
 GO
 
--- Check if table exists, drop if needed (only for initial setup)
+-- SAFE CHECK: Abort if table already exists (prevents accidental data loss)
 IF OBJECT_ID('[dbo].[tbl_recommended_orders]', 'U') IS NOT NULL
-    DROP TABLE [dbo].[tbl_recommended_orders];
+BEGIN
+    PRINT 'WARNING: Table [tbl_recommended_orders] already exists!';
+    PRINT 'Script aborted to prevent data loss.';
+    PRINT 'If you want to recreate it, manually drop the table first.';
+    RETURN;
+END
+GO
+
+PRINT 'Creating table [tbl_recommended_orders]...';
 GO
 
 CREATE TABLE [dbo].[tbl_recommended_orders] (
@@ -68,4 +76,5 @@ GO
 -- GRANT SELECT, INSERT, UPDATE, DELETE ON [dbo].[tbl_recommended_orders] TO [your_app_user];
 -- GO
 
-PRINT 'Table [tbl_recommended_orders] created successfully with indexes';
+PRINT 'All indexes created successfully!';
+PRINT 'Table [tbl_recommended_orders] is ready to use.';
