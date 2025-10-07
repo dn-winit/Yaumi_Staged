@@ -40,6 +40,13 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
     }
   }, [debouncedCustomerCodes, step]);
 
+  // Reload filter options when route selection or date changes (after filters-ready)
+  useEffect(() => {
+    if (step === 'filters-ready') {
+      loadFilterOptions();
+    }
+  }, [filters.routeCodes, filters.date, step]);
+
   const fetchRecommendationData = async (payload: RecommendedOrderFilters) => {
     const response = await getRecommendedOrderData(payload);
     return response;
@@ -280,7 +287,10 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
               </label>
               <MultiSelect
                 value={filters.routeCodes}
-                onChange={(value) => setFilters({ ...filters, routeCodes: value })}
+                onChange={(value) => {
+                  // Reset dependent selections when route changes
+                  setFilters({ ...filters, routeCodes: value, customerCodes: [], itemCodes: [] });
+                }}
                 options={[
                   { value: 'All', label: 'All Routes' },
                   ...availableOptions.routes.map(route => ({
