@@ -22,7 +22,8 @@ LEFT JOIN (
         ItemCode,
         SUM(QuantityInPCs) AS TotalQuantity
     FROM [YaumiLive].[dbo].[VW_GET_SALES_DETAILS]
-    WHERE ItemType = 'OrderItem'
+    WHERE RouteCode = '1004'  -- Filter to specific route (matches main query)
+      AND ItemType = 'OrderItem'
       AND TrxType = 'SalesInvoice'
       AND TrxDate >= '2025-09-01'  -- Match forecast start date
       AND TrxDate <= '2025-12-07'  -- Match forecast end date
