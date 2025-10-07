@@ -147,7 +147,6 @@ class RecommendationStorage:
                     generated_at
                 FROM {self.table_name}
                 WHERE CAST(trx_date AS DATE) = ?
-                  AND is_active = 1
                   {f"AND route_code = '{route_code}'" if route_code else ""}
                 ORDER BY customer_code, priority_score DESC
             """
@@ -185,7 +184,6 @@ class RecommendationStorage:
                 SELECT COUNT(*) as count
                 FROM {self.table_name}
                 WHERE CAST(trx_date AS DATE) = ?
-                  AND is_active = 1
                   {f"AND route_code = '{route_code}'" if route_code else ""}
             """
 
@@ -226,7 +224,7 @@ class RecommendationStorage:
                     MAX(generated_at) as last_generated,
                     MAX(generated_by) as generated_by
                 FROM {self.table_name}
-                WHERE CAST(trx_date AS DATE) = ? AND is_active = 1
+                WHERE CAST(trx_date AS DATE) = ?
             """
 
             result = self.db_manager.execute_query(query, (date_obj,))
