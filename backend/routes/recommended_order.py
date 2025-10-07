@@ -154,31 +154,33 @@ class TieredRecommendationSystem:
         target_dt = pd.to_datetime(target_date)
         recommendations = []
 
-        # OPTIMIZATION: Pre-compute all customer histories once (avoid repeated DataFrame filtering)
-        customer_histories = {}
+        # OPTIMIZATION: Pre-compute all customer-item histories as nested dictionary for O(1) lookup
+        customer_item_histories = {}
         for customer in journey_customers:
             cust_history = customer_df[customer_df['CustomerCode'] == customer]
-            customer_histories[customer] = cust_history
-
-        # OPTIMIZATION: Pre-build set of customer-item pairs with purchase history for fast lookup
-        customer_item_pairs = set(
-            zip(customer_df['CustomerCode'], customer_df['ItemCode'])
-        )
+            if not cust_history.empty:
+                # Convert grouped items to dictionary for instant O(1) lookup
+                customer_item_histories[customer] = {
+                    'history': cust_history,
+                    'items': {item_code: group for item_code, group in cust_history.groupby('ItemCode')}
+                }
+            else:
+                customer_item_histories[customer] = None
 
         # Sort customers for consistent processing order
         for customer in sorted(journey_customers):
-            # Get pre-computed customer history (instant dictionary lookup)
-            cust_history = customer_histories[customer]
+            # Get pre-computed customer data
+            customer_data = customer_item_histories[customer]
 
-            if cust_history.empty:
+            if customer_data is None:
                 # New customer - recommend popular items
                 recommendations.extend(
                     self._recommend_for_new_customer(customer, van_items, item_names, route_code, target_date, actual_quantities)
                 )
                 continue
 
-            # OPTIMIZATION: Group items by ItemCode once per customer for batch filtering
-            customer_item_groups = cust_history.groupby('ItemCode')
+            cust_history = customer_data['history']
+            item_dict = customer_data['items']
 
             # Analyze each item (sorted for consistency)
             sorted_items = sorted(van_items.items())
@@ -186,12 +188,12 @@ class TieredRecommendationSystem:
                 if van_qty <= 0:
                     continue
 
-                # OPTIMIZATION: Fast set lookup before expensive DataFrame operation
-                if (customer, item) not in customer_item_pairs:
+                # OPTIMIZATION: O(1) dictionary lookup for item history
+                if item not in item_dict:
                     continue
 
-                # Get item history from pre-computed groups (faster than filtering)
-                item_history = customer_item_groups.get_group(item)
+                # Get item history from pre-computed dictionary (instant O(1) access)
+                item_history = item_dict[item]
 
                 # Calculate metrics using unified priority system (with target_dt for determinism)
                 metrics = self._calculate_item_metrics(item_history, cust_history, target_dt, customer, item, customer_df)
