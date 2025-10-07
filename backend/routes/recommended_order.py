@@ -418,15 +418,13 @@ async def get_recommended_order_filter_options(
     route_code: Optional[str] = Query(None, description="Route code to filter by"),
     customer_code: Optional[str] = Query(None, description="Customer code to filter items")
 ):
-    """Get filter options for recommended order data, sourced from recommendations for the date when available"""
+    """Get filter options strictly from recommendations stored in DB for the given date.
+    - routes: all routes present for the date
+    - customers: only when a specific route is provided (date+route)
+    - items: from date+route (and optionally customer)
+    No fallback to files or master data to avoid confusing, stale, or broad lists.
+    """
     try:
-        if not data_manager.is_loaded:
-            raise HTTPException(status_code=503, detail="Data not loaded yet. Please wait for data initialization.")
-
-        demand_df = data_manager.get_demand_data()
-        if demand_df.empty:
-            raise HTTPException(status_code=404, detail="No demand data available")
-
         routes: list = []
         customers: list = []
         items: list = []
@@ -443,8 +441,11 @@ async def get_recommended_order_filter_options(
                     normalized_date = datetime.strptime(date, '%m/%d/%Y').strftime('%Y-%m-%d')
                 except ValueError:
                     normalized_date = None
+        else:
+            # Date is required to scope filter options to a single day of recommendations
+            return cached_response({"routes": [], "items": [], "customers": []}, cache_type="filter_options")
 
-        # Prefer DB recommendations for exact date (and route if given)
+        # Read recommendations for the exact date (and optional route)
         if normalized_date:
             try:
                 storage = get_recommendation_storage()
@@ -452,14 +453,6 @@ async def get_recommended_order_filter_options(
                 rec_df = storage.get_recommendations(normalized_date, route_for_db)
             except Exception:
                 rec_df = pd.DataFrame()
-
-            # Fallback to file for the date
-            if rec_df.empty:
-                output_dir = OUTPUT_DIR / 'recommendations'
-                filename = f"recommended_order_{normalized_date.replace('-', '')}.csv"
-                output_file = output_dir / filename
-                if os.path.exists(output_file):
-                    rec_df = pd.read_csv(output_file)
 
         if not rec_df.empty:
             # Ensure string types and trimmed
@@ -474,8 +467,11 @@ async def get_recommended_order_filter_options(
             if route_code and route_code != 'All':
                 rec_df = rec_df[rec_df['RouteCode'].astype(str) == str(route_code)]
 
-            # Customers strictly from recs
-            customers = [{"code": cc, "name": cc} for cc in sorted(rec_df['CustomerCode'].astype(str).unique())]
+            # Customers strictly from recs; require route filter to avoid over-broad lists
+            if route_code and route_code != 'All':
+                customers = [{"code": cc, "name": cc} for cc in sorted(rec_df['CustomerCode'].astype(str).unique())]
+            else:
+                customers = []
 
             # Items from recs, optionally filtered by customer
             rec_items = rec_df
@@ -486,18 +482,14 @@ async def get_recommended_order_filter_options(
                 items = [{"code": str(row['ItemCode']), "name": f"{row['ItemCode']} - {row['ItemName']}"}
                         for _, row in items_data.iterrows()]
                 items = sorted(items, key=lambda x: x['code'])
+            elif not (route_code and route_code != 'All'):
+                # Without route/customer context, avoid presenting broad item lists
+                items = []
         else:
-            # Fall back to master data when no recs exist for date
-            routes = [{"code": str(route), "name": str(route)} for route in sorted(demand_df['RouteCode'].astype(str).unique())]
-            customer_df = data_manager.get_customer_data()
-            if not customer_df.empty:
-                customer_df['CustomerCode'] = customer_df['CustomerCode'].astype(str).str.strip()
-                customers = [{"code": str(customer), "name": str(customer)} for customer in 
-                            sorted(customer_df['CustomerCode'].unique())]
-            items_data = demand_df[['ItemCode', 'ItemName']].drop_duplicates()
-            items = [{"code": str(row['ItemCode']), "name": f"{row['ItemCode']} - {row['ItemName']}"}
-                    for _, row in items_data.iterrows()]
-            items = sorted(items, key=lambda x: x['code'])
+            # No valid date or no recommendations found for date/route
+            routes = []
+            customers = []
+            items = []
 
         return cached_response({"routes": routes, "items": items, "customers": customers}, cache_type="filter_options")
     except HTTPException as e:

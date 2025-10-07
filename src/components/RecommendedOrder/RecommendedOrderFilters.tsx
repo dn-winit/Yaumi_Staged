@@ -125,36 +125,9 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
           items: options.items || []
         });
       }
-    } catch (e) {
+      } catch (e) {
       console.error('Failed to load filter options', e);
-      try {
-        const result = await fetchRecommendationData({
-          routeCodes: ['All'],
-          customerCodes: ['All'],
-          itemCodes: ['All'],
-          date: filters.date,
-        });
-
-        const data = (result.chart_data || []) as Array<{
-          routeCode: string;
-          customerCode: string;
-          itemCode: string;
-          itemName: string;
-        }>;
-
-        if (data.length > 0) {
-          const routes = Array.from(new Set(data.map((d) => String(d.routeCode)))).map((code) => ({ code, name: code }));
-          const customers = Array.from(new Set(data.map((d) => String(d.customerCode)))).map((code) => ({ code, name: code }));
-          const items = Array.from(
-            new Map(
-              data.map((d) => [String(d.itemCode), { code: String(d.itemCode), name: `${String(d.itemCode)} - ${String(d.itemName)}` }])
-            ).values()
-          );
-          setAvailableOptions({ routes, customers, items });
-        }
-      } catch (fallbackError) {
-        console.error('Fallback also failed', fallbackError);
-      }
+      // No fallback from chart data to prevent mixing sources
     }
   };
 
