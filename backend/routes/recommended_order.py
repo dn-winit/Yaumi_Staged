@@ -147,6 +147,9 @@ class TieredRecommendationSystem:
     def _generate_recommendations(self, customer_df, journey_customers,
                                  van_items, item_names, route_code, target_date, actual_quantities):
         """Generate tiered recommendations using unified priority system"""
+        import time
+        start_time = time.time()
+
         # Ensure target_date is provided for deterministic generation
         if not target_date:
             raise ValueError("target_date is required for deterministic recommendations")
@@ -155,6 +158,7 @@ class TieredRecommendationSystem:
         recommendations = []
 
         # OPTIMIZATION: Pre-compute all customer-item histories as nested dictionary for O(1) lookup
+        precompute_start = time.time()
         customer_item_histories = {}
         for customer in journey_customers:
             cust_history = customer_df[customer_df['CustomerCode'] == customer]
@@ -167,7 +171,10 @@ class TieredRecommendationSystem:
             else:
                 customer_item_histories[customer] = None
 
+        print(f"[TIMING] Pre-computation took: {time.time() - precompute_start:.2f}s")
+
         # Sort customers for consistent processing order
+        loop_start = time.time()
         for customer in sorted(journey_customers):
             # Get pre-computed customer data
             customer_data = customer_item_histories[customer]
@@ -253,8 +260,12 @@ class TieredRecommendationSystem:
                         'PurchaseCycleDays': round(cycle_days_final, 1),
                         'FrequencyPercent': round(frequency_percent, 1)
                     })
-        
+
+        print(f"[TIMING] Main loop (all customers/items) took: {time.time() - loop_start:.2f}s")
+        print(f"[TIMING] Generated {len(recommendations)} recommendations")
+
         # Convert to DataFrame and sort by priority
+        df_start = time.time()
         df = pd.DataFrame(recommendations)
         if not df.empty:
             df = df.sort_values(['CustomerCode', 'PriorityScore'], ascending=[True, False])
@@ -270,7 +281,10 @@ class TieredRecommendationSystem:
                 'PurchaseCycleDays', 'FrequencyPercent'
             ]
             df = df[column_order]
-        
+
+        print(f"[TIMING] DataFrame operations took: {time.time() - df_start:.2f}s")
+        print(f"[TIMING] Total generation time: {time.time() - start_time:.2f}s")
+
         return df
     
     def _apply_van_load_constraints(self, df):
