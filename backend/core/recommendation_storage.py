@@ -147,11 +147,12 @@ class RecommendationStorage:
                     generated_at
                 FROM {self.table_name}
                 WHERE CAST(trx_date AS DATE) = ?
-                  {f"AND route_code = '{route_code}'" if route_code else ""}
+                  {"AND route_code = ?" if route_code else ""}
                 ORDER BY customer_code, priority_score DESC
             """
 
-            df = self.db_manager.execute_query(query, (date_obj,))
+            params = (date_obj,) if not route_code else (date_obj, str(route_code))
+            df = self.db_manager.execute_query(query, params)
 
             if not df.empty:
                 logger.info(f"Retrieved {len(df)} recommendations from database for {date}")
@@ -184,10 +185,11 @@ class RecommendationStorage:
                 SELECT COUNT(*) as count
                 FROM {self.table_name}
                 WHERE CAST(trx_date AS DATE) = ?
-                  {f"AND route_code = '{route_code}'" if route_code else ""}
+                  {"AND route_code = ?" if route_code else ""}
             """
 
-            result = self.db_manager.execute_query(query, (date_obj,))
+            params = (date_obj,) if not route_code else (date_obj, str(route_code))
+            result = self.db_manager.execute_query(query, params)
 
             if not result.empty:
                 count = result.iloc[0]['count']
