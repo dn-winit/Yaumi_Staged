@@ -70,16 +70,15 @@ def validate_environment():
 # Validate environment on import
 validate_environment()
 
-from fastapi import BackgroundTasks
-import asyncio
+import threading
 
-# Background data loading task
-_data_loading_task = None
+# Background data loading
+_data_loading_thread = None
 _data_loading_complete = False
 
 
-async def load_data_in_background():
-    """Load data in background without blocking server startup"""
+def load_data_in_background():
+    """Load data in background thread (for synchronous operations)"""
     global _data_loading_complete
 
     try:
@@ -105,9 +104,9 @@ async def load_data_in_background():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Manage application lifecycle with lazy data loading
+    Manage application lifecycle with threaded data loading
     """
-    global _data_loading_task
+    global _data_loading_thread
 
     logger.info("="*70)
     logger.info("YAUMI ANALYTICS API - STARTING UP")
@@ -116,13 +115,14 @@ async def lifespan(app: FastAPI):
     logger.info("="*70)
 
     try:
-        # Start data loading in background (non-blocking)
-        logger.info("Starting background data loading...")
-        _data_loading_task = asyncio.create_task(load_data_in_background())
+        # Start data loading in background thread (truly non-blocking)
+        logger.info("Starting background data loading thread...")
+        _data_loading_thread = threading.Thread(target=load_data_in_background, daemon=True)
+        _data_loading_thread.start()
 
         logger.info("="*70)
         logger.info("YAUMI ANALYTICS API - READY")
-        logger.info("Data is loading in background...")
+        logger.info("Data is loading in background thread...")
         logger.info("="*70)
 
     except Exception as e:
@@ -136,14 +136,12 @@ async def lifespan(app: FastAPI):
     logger.info("YAUMI ANALYTICS API - SHUTTING DOWN")
     logger.info("="*70)
 
-    # Wait for background task to complete or cancel it
-    if _data_loading_task and not _data_loading_task.done():
-        logger.info("Waiting for background data loading to complete...")
-        try:
-            await asyncio.wait_for(_data_loading_task, timeout=10)
-        except asyncio.TimeoutError:
-            logger.warning("Background task did not complete in time, cancelling...")
-            _data_loading_task.cancel()
+    # Wait for background thread to complete (with timeout)
+    if _data_loading_thread and _data_loading_thread.is_alive():
+        logger.info("Waiting for background data loading thread to complete...")
+        _data_loading_thread.join(timeout=10)
+        if _data_loading_thread.is_alive():
+            logger.warning("Background thread did not complete in time")
 
     # Close database pool
     from backend.database import get_database_manager
@@ -318,7 +316,7 @@ async def health_check():
     import platform
     from datetime import datetime
 
-    global _data_loading_complete, _data_loading_task
+    global _data_loading_complete, _data_loading_thread
 
     # Check data manager
     data_status = data_manager.get_summary()
@@ -326,7 +324,7 @@ async def health_check():
 
     # Check background loading status
     loading_status = "complete" if _data_loading_complete else "in_progress"
-    if _data_loading_task and _data_loading_task.done() and not _data_loading_complete:
+    if _data_loading_thread and not _data_loading_thread.is_alive() and not _data_loading_complete:
         loading_status = "failed"
 
     # Check database
