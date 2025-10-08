@@ -28,3 +28,6 @@ itsdangerous>=2.1.0
 
 # Task Scheduling
 apscheduler>=3.10.0
+
+# HTTP Requests
+requests>=2.31.0
