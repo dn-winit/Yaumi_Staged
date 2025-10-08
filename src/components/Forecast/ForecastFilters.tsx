@@ -59,7 +59,7 @@ const ForecastFiltersComponent: React.FC<ForecastFiltersProps> = ({ onFiltersSub
     return (
       <div className="ui-card mb-5">
         <div className="flex items-center justify-center py-6">
-          <div className="animate-spin rounded-full h-6 w-6 border-3 border-blue-200 border-t-blue-500 mr-2"></div>
+          <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-200 border-t-blue-600 mr-2"></div>
           <span className="text-xs text-gray-600">Loading filters...</span>
         </div>
       </div>
@@ -77,7 +77,7 @@ const ForecastFiltersComponent: React.FC<ForecastFiltersProps> = ({ onFiltersSub
           <p className="text-xs text-gray-600">Configure forecast parameters</p>
         </div>
         {error && (
-          <div className="text-xs text-red-600 bg-red-50 px-2.5 py-1.5 rounded-md border border-red-200">
+          <div className="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-md border border-red-200">
             {error}
           </div>
         )}

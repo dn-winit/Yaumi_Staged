@@ -197,8 +197,8 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
         </div>
 
         {loading && (
-          <div className="mt-4 flex items-center justify-center text-emerald-600">
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-200 border-t-emerald-600 mr-2"></div>
+          <div className="mt-4 flex items-center justify-center text-blue-600">
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-200 border-t-blue-600 mr-2"></div>
             <span className="text-sm font-medium">Loading recommendations...</span>
           </div>
         )}
