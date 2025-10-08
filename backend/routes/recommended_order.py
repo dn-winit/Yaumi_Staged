@@ -1,15 +1,14 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
-from backend.models.data_models import RecommendedOrderFilters, GenerateRecommendationsRequest
+from backend.models.data_models import RecommendedOrderFilters
 from backend.core import data_manager
 from backend.core.priority_calculator import PriorityCalculator
 from backend.core.cycle_calculator import IntelligentCycleCalculator
 from backend.core.recommendation_storage import get_recommendation_storage
-from backend.config import OUTPUT_DIR, QUANTITY_PARAMS, NEW_CUSTOMER_PARAMS, MAX_DAYS_SINCE_PURCHASE
+from backend.config import QUANTITY_PARAMS, NEW_CUSTOMER_PARAMS, MAX_DAYS_SINCE_PURCHASE
 from backend.utils.http_cache import cached_response
 import pandas as pd
 import numpy as np
-import os
 from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings('ignore')
@@ -500,22 +499,20 @@ async def get_recommended_order_filter_options(
 
 @router.post("/pre-generate-daily")
 async def pre_generate_daily_recommendations(
-    date: str = Query(..., description="Target date (YYYY-MM-DD)"),
-    route_code: str = Query(default="1004", description="Route code (default: 1004)")
+    date: str = Query(..., description="Target date (YYYY-MM-DD)")
 ):
     """
-    Pre-generate recommendations for a specific date and save to database
+    Pre-generate recommendations for ALL routes
 
-    **Use Case:** Called by cron job nightly (3 AM Gulf/Asia time)
+    **Use Case:** Called by automatic scheduler daily at 3 AM
 
     **Benefits:**
     - Users get instant responses (< 1 second)
     - No waiting time during business hours
     - Consistent data throughout the day
 
-    **Cron Schedule:** Run daily at 3:00 AM local time
-    - For UAE/Saudi (UTC+4): 11:00 PM UTC previous day
-    - For Pakistan/India (UTC+5): 10:00 PM UTC previous day
+    **Route:** Generates for ALL routes, saves per-route to database
+    This ensures consistency across all generation points
 
     **Example:** curl -X POST "https://yaumi-live.onrender.com/api/v1/recommended-order/pre-generate-daily?date=2025-10-08"
     """
@@ -539,26 +536,26 @@ async def pre_generate_daily_recommendations(
 
         storage = get_recommendation_storage()
 
-        # Check if already exists
-        exists = storage.check_exists(target_date, route_code)
-        if exists:
-            info = storage.get_generation_info(target_date)
+        # Check if data already exists for this date (any route)
+        info = storage.get_generation_info(target_date)
+        if info and info.get('total_records', 0) > 0:
             return {
                 "success": True,
                 "message": f"Recommendations already exist for {target_date}",
                 "action": "skipped",
                 "date": target_date,
-                "route_code": route_code,
+                "routes_count": info.get('routes_count', 0),
                 "existing_records": info.get('total_records', 0),
                 "generated_at": info.get('generated_at')
             }
 
-        # Generate recommendations
-        print(f"[CRON] Starting recommendation generation for {target_date}, route {route_code}")
+        # Generate recommendations for ALL routes
+        print(f"[CRON] Starting recommendation generation for {target_date} (ALL routes)")
         start_time = datetime.now()
 
         system = TieredRecommendationSystem()
-        recommendations_df = system.process_recommendations(target_date, route_code)
+        # Pass None to generate for ALL routes
+        recommendations_df = system.process_recommendations(target_date, None)
 
         if recommendations_df.empty:
             raise HTTPException(
@@ -566,27 +563,35 @@ async def pre_generate_daily_recommendations(
                 detail=f"No data available to generate recommendations for {target_date}"
             )
 
-        # Save to database
-        save_result = storage.save_recommendations(recommendations_df, target_date, route_code)
+        # Save per route to database
+        total_saved = 0
+        routes_saved = []
+        for route_code in sorted(recommendations_df['RouteCode'].astype(str).unique()):
+            route_df = recommendations_df[recommendations_df['RouteCode'].astype(str) == route_code]
+            save_result = storage.save_recommendations(route_df, target_date, route_code)
+            if save_result['success']:
+                total_saved += save_result['records_saved']
+                routes_saved.append(route_code)
+                print(f"[CRON] Saved {save_result['records_saved']} recommendations for route {route_code}")
 
         generation_time = (datetime.now() - start_time).total_seconds()
 
-        if save_result['success']:
-            print(f"[CRON] Successfully saved {save_result['records_saved']} recommendations for {target_date}")
+        if total_saved > 0:
+            print(f"[CRON] Successfully saved {total_saved} recommendations across {len(routes_saved)} routes for {target_date}")
             return {
                 "success": True,
-                "message": f"Successfully generated and saved recommendations for {target_date}",
+                "message": f"Successfully generated and saved recommendations for {target_date} (ALL routes)",
                 "action": "generated",
                 "date": target_date,
-                "route_code": route_code,
-                "records_saved": save_result['records_saved'],
-                "generation_time_seconds": round(generation_time, 2),
-                "generated_at": save_result['generated_at']
+                "routes_saved": routes_saved,
+                "routes_count": len(routes_saved),
+                "records_saved": total_saved,
+                "generation_time_seconds": round(generation_time, 2)
             }
         else:
             raise HTTPException(
                 status_code=500,
-                detail=f"Failed to save recommendations: {save_result['message']}"
+                detail="Failed to save recommendations for any route"
             )
 
     except HTTPException:
@@ -635,28 +640,29 @@ async def get_recommended_order_data(filters: RecommendedOrderFilters):
         data_source = "database"
 
         if recommendations_df.empty:
-            # Not in database - generate on demand (SLOW - first time only)
-            print(f"[INFO] No recommendations in database for {target_date}, generating...")
+            # Not in database - generate on demand for ALL routes (SLOW - first time only)
+            print(f"[INFO] No recommendations in database for {target_date}, generating for ALL routes...")
 
             try:
                 system = TieredRecommendationSystem()
+                # Pass None to generate for ALL routes
                 recommendations_df = system.process_recommendations(target_date, None)
 
                 if recommendations_df.empty:
                     raise HTTPException(status_code=404, detail=f"No data available for {target_date}")
 
-                print(f"Generated {len(recommendations_df)} recommendations for {target_date}")
+                print(f"Generated {len(recommendations_df)} recommendations for {target_date} (ALL routes)")
 
-                # Save to database for next time – persist per route for correct delete/replace behavior
+                # Save per route to database for next time
                 total_saved = 0
-                for rc in sorted(recommendations_df['RouteCode'].astype(str).unique()):
-                    df_route = recommendations_df[recommendations_df['RouteCode'].astype(str) == rc]
-                    save_result = storage.save_recommendations(df_route, target_date, rc)
+                for route_code in sorted(recommendations_df['RouteCode'].astype(str).unique()):
+                    route_df = recommendations_df[recommendations_df['RouteCode'].astype(str) == route_code]
+                    save_result = storage.save_recommendations(route_df, target_date, route_code)
                     if save_result['success']:
                         total_saved += save_result['records_saved']
-                if total_saved > 0:
-                    print(f"[INFO] Saved {total_saved} recommendations to database")
+                        print(f"[INFO] Saved {save_result['records_saved']} recommendations for route {route_code}")
 
+                print(f"[INFO] Total saved: {total_saved} recommendations to database")
                 data_source = "generated"
 
             except Exception as e:

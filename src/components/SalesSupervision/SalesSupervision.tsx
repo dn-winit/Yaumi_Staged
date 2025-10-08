@@ -262,6 +262,7 @@ const SalesSupervision: React.FC = () => {
 
     try {
       // Use unified endpoint - fetches from DB or auto-generates if missing
+      // Backend generates for ALL routes if data doesn't exist
       const result = await getRecommendedOrderData({
         routeCodes: ['All'],
         customerCodes: ['All'],

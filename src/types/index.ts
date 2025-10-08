@@ -82,6 +82,7 @@ export interface FilterOption {
 
 export interface FilterOptions {
   routes: FilterOption[];
+  customers: FilterOption[];
   items: FilterOption[];
 }
 

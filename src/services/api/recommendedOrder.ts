@@ -19,7 +19,7 @@ export const getRecommendedOrderData = async (
   filters: RecommendedOrderFilters
 ): Promise<ApiResponse<RecommendedOrderDataPoint>> => {
   return await apiClient.post(endpoints.data, filters, {
-    timeout: 120000 // 2 minutes for potential generation
+    timeout: 300000 // 5 minutes for ALL routes generation (first time only)
   });
 };
 

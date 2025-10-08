@@ -33,24 +33,30 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
     items: { code: string; name: string; }[];
   }>({ routes: [], customers: [], items: [] });
 
-  // Auto-fetch data when date is selected
-  const handleDateChange = async (date: string) => {
+  // Handle date selection (no auto-fetch)
+  const handleDateChange = (date: string) => {
     setSelectedDate(date);
     setDataLoaded(false);
     setError(null);
     setSuccessMessage(null);
+    setAvailableOptions({ routes: [], customers: [], items: [] });
+  };
 
-    if (!date) {
-      setAvailableOptions({ routes: [], customers: [], items: [] });
+  // Get Recommendations button handler
+  const handleGetRecommendations = async () => {
+    if (!selectedDate) {
+      setError('Please select a date first');
       return;
     }
 
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(date)) {
+    if (!dateRegex.test(selectedDate)) {
       setError('Please select a valid date');
       return;
     }
 
+    setError(null);
+    setSuccessMessage(null);
     setLoading(true);
 
     try {
@@ -59,7 +65,7 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
         routeCodes: ['All'],
         customerCodes: ['All'],
         itemCodes: ['All'],
-        date: date
+        date: selectedDate
       });
 
       if (response.chart_data && response.chart_data.length > 0) {
@@ -68,14 +74,14 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
           routeCodes: ['All'],
           customerCodes: ['All'],
           itemCodes: ['All'],
-          date: date
+          date: selectedDate
         });
 
         // Load filter options from DB
-        await loadFilterOptions(date);
+        await loadFilterOptions(selectedDate);
 
         const message = response.status === 'generated'
-          ? `Generated ${response.chart_data.length} recommendations for ${date}`
+          ? `Generated ${response.chart_data.length} recommendations for ${selectedDate}`
           : `Loaded ${response.chart_data.length} recommendations from database`;
 
         setSuccessMessage(message);
@@ -164,13 +170,13 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
     <div className="ui-card mb-6">
       {/* Date Selection Section */}
       <div className="mb-6 pb-6 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900 flex items-center mb-4">
+        <h2 className="text-lg font-semibold text-gray-900 flex items-center justify-center mb-6">
           <Calendar className="w-5 h-5 mr-2 text-emerald-600" />
           Select Date for Recommendations
         </h2>
 
-        <div className="flex items-center gap-4">
-          <div className="flex-1 max-w-md">
+        <div className="flex items-center justify-center gap-3">
+          <div className="w-64">
             <input
               type="date"
               value={selectedDate}
@@ -180,22 +186,31 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
             />
           </div>
 
-          {loading && (
-            <div className="flex items-center text-emerald-600">
-              <div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-200 border-t-emerald-600 mr-2"></div>
-              <span className="text-sm font-medium">Loading recommendations...</span>
-            </div>
-          )}
+          <button
+            onClick={handleGetRecommendations}
+            disabled={loading || !selectedDate}
+            className="ui-button-primary"
+          >
+            <ShoppingCart className="w-4 h-4 mr-2" />
+            {loading ? 'Generating...' : 'Get Recommendations'}
+          </button>
         </div>
 
+        {loading && (
+          <div className="mt-4 flex items-center justify-center text-emerald-600">
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-200 border-t-emerald-600 mr-2"></div>
+            <span className="text-sm font-medium">Loading recommendations...</span>
+          </div>
+        )}
+
         {error && (
-          <div className="mt-3 text-sm text-red-600 bg-red-50 px-4 py-2 rounded-md border border-red-200">
+          <div className="mt-4 text-sm text-red-600 bg-red-50 px-4 py-2 rounded-md border border-red-200 max-w-2xl mx-auto">
             {error}
           </div>
         )}
 
         {successMessage && (
-          <div className="mt-3 text-sm text-green-700 bg-green-50 px-4 py-3 rounded-md border border-green-200 flex items-center">
+          <div className="mt-4 text-sm text-green-700 bg-green-50 px-4 py-3 rounded-md border border-green-200 flex items-center max-w-2xl mx-auto">
             <div className="w-4 h-4 bg-green-500 rounded-full mr-3 flex-shrink-0"></div>
             {successMessage}
           </div>

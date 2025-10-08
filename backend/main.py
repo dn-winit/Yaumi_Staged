@@ -3,6 +3,7 @@ Main FastAPI Application - Production Grade
 Clean, organized, and deployment-ready with comprehensive error handling and logging
 """
 
+from datetime import datetime
 import os
 import sys
 from pathlib import Path
@@ -36,6 +37,7 @@ from backend.middleware import (
 )
 from backend.exceptions import ValidationException
 from backend.core import data_manager
+from backend.core.scheduler import start_scheduler, stop_scheduler, get_scheduler_status
 from backend.routes import dashboard, forecast, recommended_order, sales_supervision
 
 # Setup production-grade logging
@@ -120,9 +122,14 @@ async def lifespan(app: FastAPI):
         _data_loading_thread = threading.Thread(target=load_data_in_background, daemon=True)
         _data_loading_thread.start()
 
+        # Start automatic scheduler for daily recommendations
+        logger.info("Starting automatic scheduler for daily recommendations...")
+        start_scheduler()
+
         logger.info("="*70)
         logger.info("YAUMI ANALYTICS API - READY")
         logger.info("Data is loading in background thread...")
+        logger.info("Scheduler is running - Daily recommendations at 3 AM")
         logger.info("="*70)
 
     except Exception as e:
@@ -134,6 +141,8 @@ async def lifespan(app: FastAPI):
     # Cleanup on shutdown
     logger.info("="*70)
     logger.info("YAUMI ANALYTICS API - SHUTTING DOWN")
+    logger.info("Stopping scheduler...")
+    stop_scheduler()
     logger.info("="*70)
 
     # Wait for background thread to complete (with timeout)
@@ -283,6 +292,12 @@ async def refresh_data():
             "success": False,
             "message": f"Error: {str(e)}"
         }
+
+# Scheduler status endpoint
+@app.get(f"{API_PREFIX}/scheduler/status")
+async def scheduler_status():
+    """Get automatic scheduler status"""
+    return get_scheduler_status()
 
 # Root endpoints
 @app.get("/")
