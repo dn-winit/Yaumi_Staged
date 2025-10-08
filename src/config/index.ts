@@ -1,5 +1,5 @@
 /**
- * Yaumi Analytics Platform - Frontend Configuration
+ * WINIT Analytics Platform - Frontend Configuration
  * Professional configuration with no hardcoded values
  */
 
@@ -12,12 +12,12 @@ export const config = {
       'Content-Type': 'application/json',
     },
   },
-  
+
   // App Configuration
   app: {
-    name: 'Yaumi Analytics',
+    name: 'WINIT Analytics',
     version: '2.0.0',
-    description: 'Professional Analytics Platform for Yaumi',
+    description: 'Professional Analytics Platform',
   },
   
   // Pagination

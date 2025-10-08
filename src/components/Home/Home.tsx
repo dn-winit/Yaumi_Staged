@@ -54,7 +54,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               </div>
               <div className="text-xl font-bold text-gray-900">WINIT</div>
             </div>
-            <div className="text-xs text-gray-500">Developed for Yaumi</div>
+            <div className="text-xs text-gray-500">Analytics Platform</div>
           </div>
         </div>
       </div>
@@ -239,9 +239,9 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             </div>
 
             <div>
-              <h4 className="font-semibold mb-2 text-sm">Client</h4>
+              <h4 className="font-semibold mb-2 text-sm">About</h4>
               <p className="text-xs text-gray-400">
-                Developed by WINIT for Yaumi, providing enterprise-grade demand management.
+                Enterprise-grade analytics platform for demand forecasting, order optimization, and sales supervision.
               </p>
             </div>
           </div>

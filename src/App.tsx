@@ -10,7 +10,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'dashboard' | 'forecast' | 'recommended-order' | 'sales-supervision'>('home');
 
   useEffect(() => {
-    document.title = 'WINIT - Yaumi Analytics Platform';
+    document.title = 'WINIT Analytics Platform';
   }, []);
 
   // Handle navigation with scroll to top
@@ -95,10 +95,6 @@ function App() {
                     </div>
                   </div>
                   <div className="text-lg font-bold text-white">WINIT</div>
-                </div>
-                <div className="h-6 w-px bg-gray-700"></div>
-                <div>
-                  <p className="text-gray-400 text-xs">Developed for Yaumi</p>
                 </div>
               </div>
               <div className="text-center sm:text-right">
