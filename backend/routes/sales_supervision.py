@@ -14,17 +14,13 @@ from backend.models.data_models import SalesSupervisionFilters
 from backend.routes.recommended_order import TieredRecommendationSystem
 from backend.core.dynamic_supervisor import get_or_create_session, clear_session
 from backend.core.llm_analyzer import llm_analyzer
+from backend.core.recommendation_storage import get_recommendation_storage
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# Import settings for dynamic paths
-from backend.config import OUTPUT_DIR
-
-# Output directories - using dynamic paths from settings
-RECOMMENDATIONS_DIR = OUTPUT_DIR / 'recommendations'
-SUPERVISION_DIR = OUTPUT_DIR / 'supervision'
-SUPERVISION_DIR.mkdir(parents=True, exist_ok=True)
+# All recommendations are now stored in database (tbl_recommended_orders)
+# No CSV files or local directories needed
 
 def calculate_item_accuracy(actual_qty: int, recommended_qty: int) -> float:
     """
@@ -173,32 +169,18 @@ async def get_sales_supervision_data(filters: SalesSupervisionFilters):
                     "avgPrice": round(float(row['AvgUnitPrice']), 2) if pd.notna(row['AvgUnitPrice']) else 0
                 })
         
-        # Check if recommended order exists for this date
+        # Check if recommended order exists in database for this date
         recommended_order_data = []
         customer_scores = {}
-        
-        # Convert date to format used in recommended order files (YYYYMMDD)
-        try:
-            parsed_date = datetime.strptime(target_date, '%Y-%m-%d')
-            file_date = parsed_date.strftime('%Y%m%d')
-        except ValueError:
-            # Try other date formats
-            try:
-                parsed_date = datetime.strptime(target_date, '%m/%d/%Y')
-                file_date = parsed_date.strftime('%Y%m%d')
-            except:
-                file_date = target_date.replace('-', '')
-        
-        # Check for recommended order file
-        recommended_file = RECOMMENDATIONS_DIR / f"recommended_order_{file_date}.csv"
-        
-        if recommended_file.exists():
-            # Load recommended order data
-            rec_df = pd.read_csv(recommended_file)
-            
-            # Filter by route
-            rec_filtered = rec_df[rec_df['RouteCode'].astype(str) == str(route_code)]
-            
+
+        # Get recommendations from database
+        storage = get_recommendation_storage()
+        rec_df = storage.get_recommendations(target_date, str(route_code))
+
+        if not rec_df.empty:
+            # Recommendations exist in database
+            rec_filtered = rec_df
+
             if not rec_filtered.empty:
                 # Group by customer
                 customers = rec_filtered['CustomerCode'].unique()
@@ -287,67 +269,9 @@ async def get_sales_supervision_data(filters: SalesSupervisionFilters):
         raise HTTPException(status_code=500, detail=f"Failed to get sales supervision data: {str(e)}")
 
 
-@router.post("/generate-recommendations-for-date")
-async def generate_recommendations_for_supervision(filters: SalesSupervisionFilters):
-    """Generate recommendations for a specific date if not already generated"""
-    try:
-        target_date = filters.date
-        # Convert 'All' to None for the recommendation system
-        route_code = None if filters.route_code == 'All' else filters.route_code
-        
-        # Parse and validate date
-        try:
-            parsed_date = datetime.strptime(target_date, '%Y-%m-%d')
-            formatted_date = parsed_date.strftime('%Y-%m-%d')
-            file_date = parsed_date.strftime('%Y%m%d')
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD format.")
-        
-        # Check if file already exists
-        backend_output_file = RECOMMENDATIONS_DIR / f"recommended_order_{file_date}.csv"
-        logger.info(f"Checking for existing file at: {backend_output_file}")
-        
-        if backend_output_file.exists():
-            logger.info(f"File already exists for {formatted_date}")
-            return {
-                "message": f"Recommendations already exist for {formatted_date}",
-                "generated": False,
-                "date": formatted_date
-            }
-        
-        # Check if data manager is loaded
-        if not data_manager.is_loaded:
-            raise HTTPException(status_code=503, detail="Data not loaded yet. Please wait for data initialization.")
-        
-        # Generate recommendations using TieredRecommendationSystem
-        logger.info(f"Starting recommendation generation for date: {formatted_date}, route: {route_code}")
-        system = TieredRecommendationSystem()
-        logger.info(f"TieredRecommendationSystem created, data_manager.is_loaded: {system.data_manager.is_loaded}")
-        
-        results = system.process_recommendations(formatted_date, route_code)
-        logger.info(f"Process recommendations returned {len(results) if not results.empty else 0} results")
-        
-        if results.empty:
-            return {
-                "message": f"No recommendations could be generated for {formatted_date}",
-                "generated": False,
-                "date": formatted_date
-            }
-        
-        logger.info(f"Successfully generated {len(results)} recommendations for {formatted_date}")
-        
-        return {
-            "message": f"Generated {len(results)} recommendations for {formatted_date}",
-            "generated": True,
-            "date": formatted_date,
-            "recommendations_count": len(results)
-        }
-    
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        logger.error(f"Failed to generate recommendations: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate recommendations: {str(e)}")
+# Removed: /generate-recommendations-for-date endpoint
+# Now uses unified /api/v1/recommended-order/get-recommendations-data endpoint
+# Frontend calls getRecommendedOrderData() which auto-generates if needed
 
 
 @router.post("/initialize-session")
@@ -366,31 +290,32 @@ async def initialize_dynamic_session(filters: SalesSupervisionFilters):
         # Create new session
         session = get_or_create_session(route_code, target_date)
 
-        # Parse date for file lookup
+        # Parse date
         try:
             parsed_date = datetime.strptime(target_date, '%Y-%m-%d')
-            file_date = parsed_date.strftime('%Y%m%d')
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD format.")
 
-        # Load recommendations from file
-        recommended_file = RECOMMENDATIONS_DIR / f"recommended_order_{file_date}.csv"
+        # Load recommendations from database
+        storage = get_recommendation_storage()
+        rec_df = storage.get_recommendations(target_date, str(route_code) if route_code != 'All' else None)
 
-        if not recommended_file.exists():
-            # Generate recommendations if not exists
-            logger.info(f"Recommendations not found, generating for {target_date}")
+        if rec_df.empty:
+            # Generate recommendations if not exists in database
+            logger.info(f"Recommendations not found in database, generating for {target_date}")
             system = TieredRecommendationSystem()
-            results = system.process_recommendations(target_date, route_code)
+            results = system.process_recommendations(target_date, route_code if route_code != 'All' else None)
 
             if results.empty:
                 raise HTTPException(status_code=404, detail=f"No recommendations could be generated for {target_date}")
 
-        # Load the recommendations
-        rec_df = pd.read_csv(recommended_file)
+            # Save to database
+            save_result = storage.save_recommendations(results, target_date, str(route_code) if route_code != 'All' else '1004')
+            if not save_result['success']:
+                logger.warning(f"Failed to save recommendations to database: {save_result['message']}")
 
-        # Filter by route if specific route requested
-        if route_code != 'All':
-            rec_df = rec_df[rec_df['RouteCode'].astype(str) == str(route_code)]
+            # Use the generated results
+            rec_df = results
 
         if rec_df.empty:
             raise HTTPException(status_code=404, detail=f"No recommendations found for route {route_code} on {target_date}")
@@ -479,21 +404,18 @@ async def analyze_customer_performance(request: Dict[str, Any] = Body(...)):
         if not all([customer_code, route_code, date]):
             raise HTTPException(status_code=400, detail="Missing required parameters")
 
-        # Parse date for file lookup
+        # Parse date
         try:
             parsed_date = datetime.strptime(date, '%Y-%m-%d')
-            file_date = parsed_date.strftime('%Y%m%d')
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD format.")
 
-        # Load recommendations from file
-        recommended_file = RECOMMENDATIONS_DIR / f"recommended_order_{file_date}.csv"
+        # Load recommendations from database
+        storage = get_recommendation_storage()
+        rec_df = storage.get_recommendations(date, str(route_code))
 
-        if not recommended_file.exists():
-            raise HTTPException(status_code=404, detail="Recommended order data not found for this date")
-
-        # Load the recommendations
-        rec_df = pd.read_csv(recommended_file)
+        if rec_df.empty:
+            raise HTTPException(status_code=404, detail="Recommended order data not found for this date and route")
 
         # Filter by route and customer
         customer_rec_data = rec_df[
@@ -563,19 +485,18 @@ async def analyze_customer_performance_with_updates(request: Dict[str, Any] = Bo
         if not all([customer_code, route_code, date]):
             raise HTTPException(status_code=400, detail="Missing required parameters")
 
-        # Parse date for file lookup
+        # Parse date
         try:
             parsed_date = datetime.strptime(date, '%Y-%m-%d')
-            file_date = parsed_date.strftime('%Y%m%d')
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD format.")
 
-        recommended_file = RECOMMENDATIONS_DIR / f"recommended_order_{file_date}.csv"
-        if not recommended_file.exists():
-            raise HTTPException(status_code=404, detail="Recommended order data not found for this date")
+        # Load recommendations from database
+        storage = get_recommendation_storage()
+        rec_df = storage.get_recommendations(date, str(route_code))
 
-        # Load and filter recommendations
-        rec_df = pd.read_csv(recommended_file)
+        if rec_df.empty:
+            raise HTTPException(status_code=404, detail="Recommended order data not found for this date and route")
         customer_rec_data = rec_df[
             (rec_df['RouteCode'].astype(str) == str(route_code)) &
             (rec_df['CustomerCode'].astype(str) == str(customer_code))
@@ -672,18 +593,12 @@ async def analyze_route_performance_with_visited_data(request: Dict[str, Any] = 
         # Load the full recommended order for pre-context
         try:
             parsed_date = datetime.strptime(date, '%Y-%m-%d')
-            file_date = parsed_date.strftime('%Y%m%d')
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid date format")
 
-        recommended_file = RECOMMENDATIONS_DIR / f"recommended_order_{file_date}.csv"
-        if recommended_file.exists():
-            route_data = pd.read_csv(recommended_file)
-            # Filter by route if specified
-            if route_code != 'All':
-                route_data = route_data[route_data['RouteCode'].astype(str) == str(route_code)]
-        else:
-            route_data = pd.DataFrame()
+        # Load recommendations from database
+        storage = get_recommendation_storage()
+        route_data = storage.get_recommendations(date, str(route_code) if route_code != 'All' else None)
 
         # Generate advanced analysis - returns structured JSON
         analysis_json = llm_analyzer.analyze_route_performance(

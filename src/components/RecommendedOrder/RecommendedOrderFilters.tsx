@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { RotateCcw, Search, ShoppingCart } from 'lucide-react';
+import { RotateCcw, Search, ShoppingCart, Calendar } from 'lucide-react';
 
 import MultiSelect from '../common/MultiSelect';
 import { RecommendedOrderFilters } from '../../types';
-import { generateRecommendations, getRecommendedOrderData } from '../../services/api';
-import { useDebounce } from '../../hooks/useDebounce';
+import { getRecommendedOrderData, getRecommendedOrderFilterOptions } from '../../services/api';
 
 interface RecommendedOrderFiltersProps {
   onFiltersSubmit: (filters: RecommendedOrderFilters & {
@@ -16,135 +15,129 @@ interface RecommendedOrderFiltersProps {
 const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> = ({ onFiltersSubmit }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<'date-selection' | 'processing' | 'filters-ready'>('date-selection');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const [selectedDate, setSelectedDate] = useState('');
+  const [dataLoaded, setDataLoaded] = useState(false);
+
   const [filters, setFilters] = useState<RecommendedOrderFilters>({
-    routeCodes: [],
-    customerCodes: [],
-    itemCodes: [],
+    routeCodes: ['All'],
+    customerCodes: ['All'],
+    itemCodes: ['All'],
     date: '',
   });
+
   const [availableOptions, setAvailableOptions] = useState<{
     routes: { code: string; name: string; }[];
     customers: { code: string; name: string; }[];
     items: { code: string; name: string; }[];
   }>({ routes: [], customers: [], items: [] });
 
-  // Debounce customer code changes to reduce API calls (300ms delay)
-  const debouncedCustomerCodes = useDebounce(filters.customerCodes, 300);
+  // Auto-fetch data when date is selected
+  const handleDateChange = async (date: string) => {
+    setSelectedDate(date);
+    setDataLoaded(false);
+    setError(null);
+    setSuccessMessage(null);
 
-  // Load filter options when debounced customer codes change
-  useEffect(() => {
-    if (step === 'filters-ready' && debouncedCustomerCodes) {
-      loadFilterOptions(debouncedCustomerCodes);
-    }
-  }, [debouncedCustomerCodes, step]);
-
-  // Reload filter options when route selection or date changes (after filters-ready)
-  useEffect(() => {
-    if (step === 'filters-ready') {
-      loadFilterOptions();
-    }
-  }, [filters.routeCodes, filters.date, step]);
-
-  const fetchRecommendationData = async (payload: RecommendedOrderFilters) => {
-    const response = await getRecommendedOrderData(payload);
-    return response;
-  };
-
-  const handleDateSubmit = async () => {
-    if (!filters.date) {
-      setError('Please select a date to continue');
+    if (!date) {
+      setAvailableOptions({ routes: [], customers: [], items: [] });
       return;
     }
 
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(filters.date)) {
-      setError('Please select a valid date in YYYY-MM-DD format');
+    if (!dateRegex.test(date)) {
+      setError('Please select a valid date');
       return;
     }
 
     setLoading(true);
-    setStep('processing');
-    setError(null);
-    setSuccessMessage(null);
 
     try {
-      let hasData = false;
-      try {
-        const existing = await fetchRecommendationData({
+      // Fetch recommendations - auto-generates if doesn't exist
+      const response = await getRecommendedOrderData({
+        routeCodes: ['All'],
+        customerCodes: ['All'],
+        itemCodes: ['All'],
+        date: date
+      });
+
+      if (response.chart_data && response.chart_data.length > 0) {
+        setDataLoaded(true);
+        setFilters({
           routeCodes: ['All'],
           customerCodes: ['All'],
           itemCodes: ['All'],
-          date: filters.date,
+          date: date
         });
-        const chart = Array.isArray(existing.chart_data) ? existing.chart_data : [];
-        hasData = chart.length > 0;
-        if (hasData) {
-          await loadFilterOptions();
-          setStep('filters-ready');
-          setSuccessMessage(existing.message || `Found existing recommendations for ${filters.date}.`);
-        }
-      } catch {
-        hasData = false;
-      }
 
-      if (!hasData) {
-        const result = await generateRecommendations({ date: filters.date });
-        await loadFilterOptions();
-        setStep('filters-ready');
-        setSuccessMessage(result.message || `Generated recommended orders for ${filters.date}.`);
+        // Load filter options from DB
+        await loadFilterOptions(date);
+
+        const message = response.status === 'generated'
+          ? `Generated ${response.chart_data.length} recommendations for ${date}`
+          : `Loaded ${response.chart_data.length} recommendations from database`;
+
+        setSuccessMessage(message);
+      } else {
+        setError('No data available for this date. Please try another date.');
       }
-    } catch (e) {
-      console.error('Failed to prepare recommendations', e);
-      setError('Failed to prepare recommendations. Please try again.');
-      setStep('date-selection');
+    } catch (err) {
+      console.error('Failed to load recommendations:', err);
+      setError('Failed to load recommendations. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadFilterOptions = async (customerCodes?: string[]) => {
+  // Load filter options from backend
+  const loadFilterOptions = async (date: string, routeCode?: string, customerCode?: string) => {
     try {
-      const params = new URLSearchParams();
-      params.append('date', filters.date);
-      if (filters.routeCodes && filters.routeCodes.length > 0 && !filters.routeCodes.includes('All')) {
-        params.append('route_code', filters.routeCodes[0]); // For now, use first route
-      }
-      if (customerCodes && customerCodes.length > 0 && !customerCodes.includes('All')) {
-        params.append('customer_code', customerCodes[0]); // For now, use first customer
-      }
+      const options = await getRecommendedOrderFilterOptions(
+        date,
+        routeCode && routeCode !== 'All' ? routeCode : undefined,
+        customerCode && customerCode !== 'All' ? customerCode : undefined
+      );
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'}/recommended-order/filter-options?${params}`);
-      const options = await response.json();
-
-      if (options) {
-        setAvailableOptions({
-          routes: options.routes || [],
-          customers: options.customers || [],
-          items: options.items || []
-        });
-      }
-      } catch (e) {
-      console.error('Failed to load filter options', e);
-      // No fallback from chart data to prevent mixing sources
+      setAvailableOptions({
+        routes: options.routes || [],
+        customers: options.customers || [],
+        items: options.items || []
+      });
+    } catch (err) {
+      console.error('Failed to load filter options:', err);
     }
   };
 
+  // When route changes, reload customers and items
+  useEffect(() => {
+    if (dataLoaded && filters.routeCodes.length > 0 && filters.routeCodes[0] !== '') {
+      const routeCode = filters.routeCodes.includes('All') ? undefined : filters.routeCodes[0];
+      loadFilterOptions(selectedDate, routeCode);
+    }
+  }, [filters.routeCodes]);
+
+  // When customer changes, reload items
+  useEffect(() => {
+    if (dataLoaded && filters.customerCodes && filters.customerCodes.length > 0) {
+      const routeCode = filters.routeCodes.includes('All') ? undefined : filters.routeCodes[0];
+      const customerCode = filters.customerCodes.includes('All') ? undefined : filters.customerCodes[0];
+      loadFilterOptions(selectedDate, routeCode, customerCode);
+    }
+  }, [filters.customerCodes]);
+
   const handleClearFilters = () => {
     setFilters({
-      routeCodes: [],
-      customerCodes: [],
-      itemCodes: [],
-      date: filters.date,
+      ...filters,
+      routeCodes: ['All'],
+      customerCodes: ['All'],
+      itemCodes: ['All'],
     });
   };
 
-  const canSubmit = filters.routeCodes && filters.routeCodes.length > 0 && filters.routeCodes[0] !== '';
-
   const handleSubmit = async () => {
-    if (!canSubmit) {
-      setError('Please select at least one route to continue');
+    if (!dataLoaded) {
+      setError('Please select a date first');
       return;
     }
 
@@ -152,117 +145,84 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
     setLoading(true);
 
     try {
-      const result = await fetchRecommendationData(filters);
+      const result = await getRecommendedOrderData(filters);
 
       onFiltersSubmit({
         ...filters,
         chartData: result.chart_data,
         tableData: result.table_data,
       });
-    } catch (e) {
-      console.error('Failed to get recommendation data', e);
+    } catch (err) {
+      console.error('Failed to get recommendation data', err);
       setError('Failed to get recommendation data. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleBackToDateSelection = () => {
-    setStep('date-selection');
-    setSuccessMessage(null);
-    setError(null);
-    setAvailableOptions({ routes: [], customers: [], items: [] });
-  };
-
   return (
     <div className="ui-card mb-6">
-      {step === 'date-selection' && (
-        <div className="text-center py-8">
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center justify-center mb-2">
-              <ShoppingCart className="w-6 h-6 mr-2 text-emerald-600" />
-              Generate Recommended Orders
-            </h2>
-            <p className="text-gray-600">Select a date to generate AI-powered order recommendations</p>
-          </div>
+      {/* Date Selection Section */}
+      <div className="mb-6 pb-6 border-b border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-900 flex items-center mb-4">
+          <Calendar className="w-5 h-5 mr-2 text-emerald-600" />
+          Select Date for Recommendations
+        </h2>
 
-          <div className="max-w-md mx-auto">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Date <span className="text-red-500">*</span>
-            </label>
+        <div className="flex items-center gap-4">
+          <div className="flex-1 max-w-md">
             <input
               type="date"
-              value={filters.date}
-              onChange={(e) => setFilters({ ...filters, date: e.target.value })}
-              className="ui-input text-center text-lg py-3"
-              required
+              value={selectedDate}
+              onChange={(e) => handleDateChange(e.target.value)}
+              className="ui-input"
+              placeholder="Select date"
             />
-
-            {error && (
-              <div className="mt-4 text-sm text-red-600 bg-red-50 px-4 py-2 rounded-md border border-red-200">
-                {error}
-              </div>
-            )}
-
-            <button
-              onClick={handleDateSubmit}
-              disabled={!filters.date || loading}
-              className="mt-6 bg-emerald-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-colors duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Generate Recommendations
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === 'processing' && (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-emerald-200 border-t-emerald-600 mx-auto mb-4"></div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Generating Recommendations</h3>
-          <p className="text-gray-600">Running AI analysis for {filters.date}...</p>
-        </div>
-      )}
-
-      {step === 'filters-ready' && (
-        <div>
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center mb-1">
-                <ShoppingCart className="w-5 h-5 mr-2 text-emerald-600" />
-                Filter Recommendations for {filters.date}
-              </h2>
-              <p className="text-sm text-gray-600">Apply filters to view specific recommendations</p>
-            </div>
-            {error && (
-              <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
-                {error}
-              </div>
-            )}
           </div>
 
-          {successMessage && (
-            <div className="mb-4 text-sm text-green-700 bg-green-50 px-4 py-3 rounded-md border border-green-200 flex items-center">
-              <div className="w-4 h-4 bg-green-500 rounded-full mr-3 flex-shrink-0"></div>
-              {successMessage}
-              <button
-                onClick={handleBackToDateSelection}
-                className="ml-auto text-sm text-gray-500 hover:text-gray-700 underline"
-              >
-                Change Date
-              </button>
+          {loading && (
+            <div className="flex items-center text-emerald-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-200 border-t-emerald-600 mr-2"></div>
+              <span className="text-sm font-medium">Loading recommendations...</span>
             </div>
           )}
+        </div>
+
+        {error && (
+          <div className="mt-3 text-sm text-red-600 bg-red-50 px-4 py-2 rounded-md border border-red-200">
+            {error}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mt-3 text-sm text-green-700 bg-green-50 px-4 py-3 rounded-md border border-green-200 flex items-center">
+            <div className="w-4 h-4 bg-green-500 rounded-full mr-3 flex-shrink-0"></div>
+            {successMessage}
+          </div>
+        )}
+      </div>
+
+      {/* Filters Section - Only shown when data is loaded */}
+      {dataLoaded && (
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center mb-4">
+            <ShoppingCart className="w-5 h-5 mr-2 text-emerald-600" />
+            Filter Recommendations
+          </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
-              <label className="ui-label">
-                Routes <span className="text-red-500">*</span>
-              </label>
+              <label className="ui-label">Routes</label>
               <MultiSelect
                 value={filters.routeCodes}
                 onChange={(value) => {
                   // Reset dependent selections when route changes
-                  setFilters({ ...filters, routeCodes: value, customerCodes: [], itemCodes: [] });
+                  setFilters({
+                    ...filters,
+                    routeCodes: value,
+                    customerCodes: ['All'],
+                    itemCodes: ['All']
+                  });
                 }}
                 options={[
                   { value: 'All', label: 'All Routes' },
@@ -278,11 +238,10 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
             <div>
               <label className="ui-label">Customers</label>
               <MultiSelect
-                value={filters.customerCodes || []}
+                value={filters.customerCodes || ['All']}
                 onChange={(value) => {
-                  // Update filters immediately for UI responsiveness
-                  // But API call is debounced via useEffect hook above
-                  setFilters({ ...filters, customerCodes: value });
+                  // Reset items when customer changes
+                  setFilters({ ...filters, customerCodes: value, itemCodes: ['All'] });
                 }}
                 options={[
                   { value: 'All', label: 'All Customers' },
@@ -299,7 +258,7 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
             <div>
               <label className="ui-label">Items</label>
               <MultiSelect
-                value={filters.itemCodes || []}
+                value={filters.itemCodes || ['All']}
                 onChange={(value) => setFilters({ ...filters, itemCodes: value })}
                 options={[
                   { value: 'All', label: 'All Items' },
@@ -324,8 +283,8 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
             </button>
             <button
               onClick={handleSubmit}
-              disabled={!canSubmit}
-              className={`ui-button-primary ${!canSubmit ? 'disabled' : ''}`}
+              disabled={loading}
+              className="ui-button-primary"
             >
               <Search className="w-4 h-4 mr-2" />
               {loading ? 'Loading...' : 'Apply Filters'}

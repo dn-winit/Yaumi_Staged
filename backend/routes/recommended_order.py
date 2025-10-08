@@ -52,13 +52,10 @@ class TieredRecommendationSystem:
         
         if recommendations.empty:
             return pd.DataFrame()
-        
-        # Save results
-        output_dir = OUTPUT_DIR / 'recommendations'
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_file = output_dir / f"recommended_order_{target_date.replace('-', '')}.csv"
-        recommendations.to_csv(output_file, index=False)
-        
+
+        # Note: Results are saved to database by the calling endpoint
+        # No CSV files are created - database is the single source of truth
+
         return recommendations
     
     def _load_data(self, target_date: str, route_code: str = None):
@@ -498,53 +495,7 @@ async def get_recommended_order_filter_options(
         raise HTTPException(status_code=500, detail=f"Failed to load filter options: {str(e)}")
 
 
-@router.post("/generate-recommendations")
-async def generate_recommendations(request: GenerateRecommendationsRequest):
-    """Generate recommendations for a specific date and optionally route code"""
-    try:
-        # Check if data manager is loaded
-        if not data_manager.is_loaded:
-            raise HTTPException(status_code=503, detail="Data not loaded yet. Please wait for data initialization.")
-        
-        target_date = request.date
-        route_code = request.route_code  # Optional route code parameter
-        force_regenerate = getattr(request, 'force_regenerate', False)  # Optional force regenerate flag
-        
-        # Validate and normalize date format - handle both YYYY-MM-DD and MM/DD/YYYY
-        try:
-            # Try YYYY-MM-DD format first
-            parsed_date = datetime.strptime(target_date, '%Y-%m-%d')
-            target_date = parsed_date.strftime('%Y-%m-%d')
-        except ValueError:
-            try:
-                # Try MM/DD/YYYY format (frontend format)
-                parsed_date = datetime.strptime(target_date, '%m/%d/%Y')
-                target_date = parsed_date.strftime('%Y-%m-%d')
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD or MM/DD/YYYY format.")
-        
-        # Use the working recommendation system
-        system = TieredRecommendationSystem()
-        results = system.process_recommendations(target_date, route_code)
-        
-        if results.empty:
-            error_msg = f"No recommendations could be generated for date {target_date}"
-            if route_code:
-                error_msg += f" and route {route_code}"
-            error_msg += ". Check if data exists for this date and route combination."
-            raise HTTPException(status_code=404, detail=error_msg)
-        
-        return {
-            "message": f"Generated {len(results)} recommendations for {target_date}" + (f" (Route: {route_code})" if route_code else ""),
-            "recommendations_count": len(results),
-            "date": target_date,
-            "route_code": route_code
-        }
-    except HTTPException as e:
-        # Preserve intended status (e.g., 404)
-        raise e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate recommendations: {str(e)}")
+# Removed - This endpoint is redundant. Use /get-recommendations-data which auto-generates if data doesn't exist
 
 
 @router.post("/pre-generate-daily")

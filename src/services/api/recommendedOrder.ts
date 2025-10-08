@@ -1,63 +1,52 @@
 /**
- * Recommended Order API Service
- * All recommendation-related API calls
+ * Recommended Order API Service - Optimized
+ * Only essential API calls - no redundancy
  */
 
 import apiClient from './client';
 import config from '../../config';
-import { RecommendedOrderFilters, FilterOptions, ApiResponse, RecommendedOrderDataPoint, GenerateRecommendationsRequest } from '../../types';
+import { RecommendedOrderFilters, FilterOptions, ApiResponse, RecommendedOrderDataPoint } from '../../types';
 
 const endpoints = config.endpoints.recommendedOrder;
 
-export const recommendedOrderAPI = {
-  // Generate recommendations (with extended timeout)
-  generateRecommendations: async (
-    request: GenerateRecommendationsRequest
-  ): Promise<{ message?: string; generated?: boolean; recommendations_count?: number }> => {
-    return (await apiClient.post(endpoints.generate, request, {
-      timeout: 120000 // 2 minutes for recommendation generation
-    })) as unknown as {
-      message?: string;
-      generated?: boolean;
-      recommendations_count?: number;
-    };
-  },
-
-  // Get recommendations list
-  getRecommendationsList: async (routeCode: number, targetDate: string) => {
-    return await apiClient.get(endpoints.list, {
-      params: { route_code: routeCode, target_date: targetDate }
-    });
-  },
-
-  // Get recommendation history
-  getHistory: async (routeCode?: number) => {
-    return await apiClient.get(endpoints.history, {
-      params: { route_code: routeCode }
-    });
-  },
-
-  // Get available dates for journey planning
-  getAvailableDates: async (routeCode: number) => {
-    return await apiClient.get(endpoints.availableDates, {
-      params: { route_code: routeCode }
-    });
-  },
-
-  // Get filter options
-  getFilterOptions: async (): Promise<FilterOptions> => {
-    return await apiClient.get(endpoints.filterOptions);
-  },
-
-  // Get recommendations data with filters (with extended timeout for generation)
-  getRecommendationsData: async (filters: RecommendedOrderFilters): Promise<ApiResponse<RecommendedOrderDataPoint>> => {
-    return await apiClient.post(endpoints.data, filters, {
-      timeout: 120000 // 2 minutes for recommendation generation
-    });
-  },
+/**
+ * Main endpoint - Get recommendations with auto-generation
+ * - Fetches from DB if exists (instant)
+ * - Auto-generates if missing (30-60s first time)
+ * - Applies filters and returns data
+ */
+export const getRecommendedOrderData = async (
+  filters: RecommendedOrderFilters
+): Promise<ApiResponse<RecommendedOrderDataPoint>> => {
+  return await apiClient.post(endpoints.data, filters, {
+    timeout: 120000 // 2 minutes for potential generation
+  });
 };
 
-// Maintain backward compatibility
-export const getRecommendedOrderFilterOptions = recommendedOrderAPI.getFilterOptions;
-export const generateRecommendations = recommendedOrderAPI.generateRecommendations;
-export const getRecommendedOrderData = recommendedOrderAPI.getRecommendationsData;
+/**
+ * Get filter options for dropdowns
+ * - Requires date parameter
+ * - Optional route_code and customer_code for cascading filters
+ */
+export const getRecommendedOrderFilterOptions = async (
+  date: string,
+  routeCode?: string,
+  customerCode?: string
+): Promise<FilterOptions> => {
+  const params = new URLSearchParams();
+  params.append('date', date);
+  if (routeCode && routeCode !== 'All') {
+    params.append('route_code', routeCode);
+  }
+  if (customerCode && customerCode !== 'All') {
+    params.append('customer_code', customerCode);
+  }
+
+  return await apiClient.get(`${endpoints.filterOptions}?${params.toString()}`);
+};
+
+// Export as default object for easy import
+export const recommendedOrderAPI = {
+  getData: getRecommendedOrderData,
+  getFilterOptions: getRecommendedOrderFilterOptions,
+};

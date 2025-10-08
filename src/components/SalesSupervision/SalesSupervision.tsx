@@ -5,7 +5,7 @@ import MultiSelect from '../common/MultiSelect';
 import {
   getSalesSupervisionFilterOptions,
   getSalesSupervisionData,
-  generateRecommendations,
+  getRecommendedOrderData,
   salesSupervisionAPI
 } from '../../services/api';
 
@@ -261,32 +261,28 @@ const SalesSupervision: React.FC = () => {
     setSuccessMessage(null);
 
     try {
-      // Generate recommendations for ALL routes, not just the selected one
-      // This ensures we have comprehensive data for all routes
-      const result = await generateRecommendations({
-        routeCode: undefined,  // Generate for all routes (backend expects null/undefined)
+      // Use unified endpoint - fetches from DB or auto-generates if missing
+      const result = await getRecommendedOrderData({
+        routeCodes: ['All'],
+        customerCodes: ['All'],
+        itemCodes: ['All'],
         date: selectedDate
-      }) as unknown as { message?: string; generated?: boolean; recommendations_count?: number };
-      
-      // Show success message
-      if (result.message) {
-        setSuccessMessage(result.message);
-      } else if (result.generated) {
-        setSuccessMessage(`Successfully generated ${result.recommendations_count || 0} recommendations for ${selectedDate}`);
+      });
+
+      // Show success message based on data source
+      if (result.status === 'generated') {
+        setSuccessMessage(`Successfully generated ${result.chart_data?.length || 0} recommendations for ${selectedDate}`);
       } else {
-        setSuccessMessage('Recommendations already exist for this date');
+        setSuccessMessage(`Loaded ${result.chart_data?.length || 0} recommendations from database for ${selectedDate}`);
       }
-      
-      // Longer delay to ensure file is fully written
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Reload data after generation to show the new recommendations
+
+      // Reload sales supervision data to show the new recommendations
       if (selectedRoutes.length > 0 && selectedDate) {
         await handleApplyFilters();
       }
     } catch (err) {
-      console.error('Failed to generate recommendations:', err);
-      setError('Failed to generate recommendations. Please try again.');
+      console.error('Failed to get recommendations:', err);
+      setError('Failed to get recommendations. Please try again.');
     } finally {
       setGeneratingRecommendations(false);
     }
