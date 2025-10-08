@@ -234,7 +234,7 @@ const ForecastChart: React.FC<ForecastChartProps> = ({ data }) => {
             <div className="relative">
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="px-4 py-2 border-2 border-gray-300 rounded-md hover:border-emerald-500 flex items-center gap-2 text-sm font-medium text-gray-700"
+                className="px-4 py-2 border-2 border-gray-300 rounded-md hover:border-blue-500 flex items-center gap-2 text-sm font-medium text-gray-700"
               >
                 <span>{getDisplayText()}</span>
                 <svg className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -246,7 +246,7 @@ const ForecastChart: React.FC<ForecastChartProps> = ({ data }) => {
                 <div className="absolute right-0 mt-2 w-64 bg-white border-2 border-gray-200 rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
                   <div
                     onClick={() => handleItemSelection('All')}
-                    className="px-3 py-2 hover:bg-emerald-50 cursor-pointer flex items-center bg-emerald-50 border-b-2 border-gray-200"
+                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer flex items-center bg-blue-50 border-b-2 border-gray-200"
                   >
                     <input
                       type="checkbox"
@@ -290,7 +290,7 @@ const ForecastChart: React.FC<ForecastChartProps> = ({ data }) => {
                     </button>
                     <button
                       onClick={() => setIsDropdownOpen(false)}
-                      className="flex-1 text-xs py-1.5 px-2 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                      className="flex-1 text-xs py-1.5 px-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
                       Apply
                     </button>

@@ -1449,14 +1449,14 @@ const SalesSupervision: React.FC = () => {
 
                 {/* Historical Patterns */}
                 {currentAnalysis.identified_patterns && currentAnalysis.identified_patterns.length > 0 && (
-                  <div className="bg-indigo-50 rounded-lg border border-indigo-200 p-4">
-                    <h4 className="text-sm font-bold text-indigo-800 mb-2 flex items-center">
+                  <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
+                    <h4 className="text-sm font-bold text-blue-800 mb-2 flex items-center">
                       <span className="mr-2">📈</span>Historical Patterns Detected
                     </h4>
                     <ul className="space-y-1">
                       {currentAnalysis.identified_patterns.map((item: string, idx: number) => (
                         <li key={idx} className="text-sm text-gray-700 flex items-start">
-                          <span className="inline-block w-1.5 h-1.5 bg-indigo-500 rounded-full mr-2 mt-2 flex-shrink-0"></span>
+                          <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full mr-2 mt-2 flex-shrink-0"></span>
                           <span>{item}</span>
                         </li>
                       ))}

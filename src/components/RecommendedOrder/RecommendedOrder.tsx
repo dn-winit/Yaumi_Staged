@@ -73,8 +73,8 @@ const RecommendedOrder: React.FC = () => {
           subtitle="Intelligent order recommendations with priority tiers"
           legend={{
             items: [
-              { color: 'bg-indigo-600', label: 'Recommended' },
-              { color: 'bg-blue-600', label: 'Actual' }
+              { color: 'bg-blue-600', label: 'Recommended' },
+              { color: 'bg-blue-400', label: 'Actual' }
             ]
           }}
           onRefresh={handleRefresh}

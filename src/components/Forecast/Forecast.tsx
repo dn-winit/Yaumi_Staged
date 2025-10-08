@@ -33,7 +33,7 @@ const Forecast: React.FC = () => {
           subtitle="AI-powered demand predictions across multiple time horizons"
           legend={{
             items: [
-              { color: 'bg-blue-500', label: 'Predicted' }
+              { color: 'bg-blue-600', label: 'Predicted' }
             ]
           }}
         />
@@ -44,7 +44,7 @@ const Forecast: React.FC = () => {
           <LoadingState
             title="Loading Forecast Data"
             message="Generating demand predictions..."
-            spinnerColor="border-t-blue-500"
+            spinnerColor="border-t-blue-600"
           />
         )}
 

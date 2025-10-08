@@ -203,8 +203,8 @@ const HistoricalPopup: React.FC<HistoricalPopupProps> = ({ isOpen, onClose, data
                 const colors = [
                   { bg: 'bg-blue-50', text: 'text-blue-600', bold: 'text-blue-700' },
                   { bg: 'bg-blue-100', text: 'text-blue-600', bold: 'text-blue-700' },
-                  { bg: 'bg-indigo-50', text: 'text-indigo-600', bold: 'text-indigo-700' },
-                  { bg: 'bg-indigo-100', text: 'text-indigo-600', bold: 'text-indigo-700' },
+                  { bg: 'bg-slate-50', text: 'text-slate-600', bold: 'text-slate-700' },
+                  { bg: 'bg-slate-100', text: 'text-slate-600', bold: 'text-slate-700' },
                   { bg: 'bg-cyan-50', text: 'text-cyan-600', bold: 'text-cyan-700' }
                 ];
                 const color = colors[index];
