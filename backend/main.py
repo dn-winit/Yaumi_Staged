@@ -45,7 +45,7 @@ log_dir = BASE_DIR / 'logs'
 setup_logging(
     log_level=LOG_LEVEL,
     log_dir=log_dir,
-    app_name='yaumi_analytics',
+    app_name='winit_analytics',
     json_logs=(ENVIRONMENT == 'production'),
     console_output=True
 )
@@ -111,7 +111,7 @@ async def lifespan(app: FastAPI):
     global _data_loading_thread
 
     logger.info("="*70)
-    logger.info("YAUMI ANALYTICS API - STARTING UP")
+    logger.info("WINIT ANALYTICS API - STARTING UP")
     logger.info(f"Environment: {ENVIRONMENT}")
     logger.info(f"API Version: 2.0.0")
     logger.info("="*70)
@@ -127,7 +127,7 @@ async def lifespan(app: FastAPI):
         start_scheduler()
 
         logger.info("="*70)
-        logger.info("YAUMI ANALYTICS API - READY")
+        logger.info("WINIT ANALYTICS API - READY")
         logger.info("Data is loading in background thread...")
         logger.info("Scheduler is running - Daily recommendations at 3 AM")
         logger.info("="*70)
@@ -140,7 +140,7 @@ async def lifespan(app: FastAPI):
 
     # Cleanup on shutdown
     logger.info("="*70)
-    logger.info("YAUMI ANALYTICS API - SHUTTING DOWN")
+    logger.info("WINIT ANALYTICS API - SHUTTING DOWN")
     logger.info("Stopping scheduler...")
     stop_scheduler()
     logger.info("="*70)
@@ -161,9 +161,9 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app with production configuration
 app = FastAPI(
-    title="Yaumi Analytics API",
+    title="WINIT Analytics API",
     version="2.0.0",
-    description="Professional Analytics Platform for Yaumi - Demand, Forecast, Recommendations & Supervision",
+    description="Professional Analytics Platform - Demand Forecasting, Order Optimization & Sales Supervision",
     lifespan=lifespan,
     docs_url="/api/docs" if ENVIRONMENT == 'development' else None,
     redoc_url="/api/redoc" if ENVIRONMENT == 'development' else None,
@@ -211,7 +211,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     SessionMiddleware,
     secret_key=SECRET_KEY,
-    session_cookie="yaumi_session",
+    session_cookie="winit_session",
     max_age=3600,  # 1 hour
     same_site="lax",
     https_only=(ENVIRONMENT == 'production')
@@ -304,7 +304,7 @@ async def scheduler_status():
 async def root():
     """Root endpoint - API Information"""
     return {
-        "name": "Yaumi Analytics API",
+        "name": "WINIT Analytics API",
         "version": "2.0.0",
         "status": "running",
         "description": "Professional Analytics Platform",
@@ -356,7 +356,7 @@ async def health_check():
 
     health_response = {
         "status": "healthy" if overall_healthy else "degraded",
-        "service": "Yaumi Analytics API",
+        "service": "WINIT Analytics API",
         "version": "2.0.0",
         "environment": ENVIRONMENT,
         "timestamp": datetime.now().isoformat(),
@@ -403,7 +403,7 @@ async def api_status():
     data_summary = data_manager.get_summary()
 
     return {
-        "service": "Yaumi Analytics API",
+        "service": "WINIT Analytics API",
         "version": "2.0.0",
         "environment": ENVIRONMENT,
         "data": data_summary,
