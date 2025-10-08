@@ -2,7 +2,7 @@ import React from 'react';
 import { X } from 'lucide-react';
 import { HistoricalAverages, DailyAverages, WeeklyAverages, MonthlyAverages } from '../../types';
 import { Bar } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, TooltipItem } from 'chart.js';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -109,7 +109,7 @@ const HistoricalPopup: React.FC<HistoricalPopupProps> = ({ isOpen, onClose, data
         borderWidth: 1,
         cornerRadius: 8,
         callbacks: {
-          label: function(context: unknown) {
+          label: function(context: TooltipItem<'bar'>) {
             return `Average: ${Math.round(context.parsed.y)}`;
           }
         }
