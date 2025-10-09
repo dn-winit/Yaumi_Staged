@@ -39,48 +39,48 @@ class SupervisionStorage:
         Returns:
             Result dictionary with success status
         """
-        conn = None
+        logger.info(f"Starting save: {len(customer_summaries)} customers, {len(item_details)} items")
         try:
-            conn = self.db_manager.get_connection()
-            cursor = conn.cursor()
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
 
-            # 1. Upsert Route Summary
-            route_merge = f"""
-                MERGE INTO {self.route_table} AS target
-                    USING (SELECT ? AS session_id) AS source
-                    ON target.session_id = source.session_id
-                    WHEN MATCHED THEN
-                        UPDATE SET
-                            total_customers_visited = ?,
-                            customer_completion_rate = ?,
-                            total_skus_recommended = ?,
-                            total_skus_sold = ?,
-                            sku_coverage_rate = ?,
-                            total_qty_recommended = ?,
-                            total_qty_actual = ?,
-                            qty_fulfillment_rate = ?,
-                            redistribution_count = ?,
-                            redistribution_qty = ?,
-                            route_performance_score = ?,
-                            llm_performance_analysis = ?,
-                            session_status = ?
-                    WHEN NOT MATCHED THEN
-                        INSERT (
-                            session_id, route_code, supervision_date,
-                            total_customers_planned, total_customers_visited, customer_completion_rate,
-                            total_skus_recommended, total_skus_sold, sku_coverage_rate,
-                            total_qty_recommended, total_qty_actual, qty_fulfillment_rate,
-                            redistribution_count, redistribution_qty,
-                            route_performance_score, llm_performance_analysis, session_status
-                        )
-                        VALUES (
-                            ?, ?, ?,
-                            ?, ?, ?,
-                            ?, ?, ?,
-                            ?, ?, ?,
-                            ?, ?,
-                            ?, ?, ?
-                        );
+                # 1. Upsert Route Summary
+                route_merge = f"""
+                    MERGE INTO {self.route_table} AS target
+                        USING (SELECT ? AS session_id) AS source
+                        ON target.session_id = source.session_id
+                        WHEN MATCHED THEN
+                            UPDATE SET
+                                total_customers_visited = ?,
+                                customer_completion_rate = ?,
+                                total_skus_recommended = ?,
+                                total_skus_sold = ?,
+                                sku_coverage_rate = ?,
+                                total_qty_recommended = ?,
+                                total_qty_actual = ?,
+                                qty_fulfillment_rate = ?,
+                                redistribution_count = ?,
+                                redistribution_qty = ?,
+                                route_performance_score = ?,
+                                llm_performance_analysis = ?,
+                                session_status = ?
+                        WHEN NOT MATCHED THEN
+                            INSERT (
+                                session_id, route_code, supervision_date,
+                                total_customers_planned, total_customers_visited, customer_completion_rate,
+                                total_skus_recommended, total_skus_sold, sku_coverage_rate,
+                                total_qty_recommended, total_qty_actual, qty_fulfillment_rate,
+                                redistribution_count, redistribution_qty,
+                                route_performance_score, llm_performance_analysis, session_status
+                            )
+                            VALUES (
+                                ?, ?, ?,
+                                ?, ?, ?,
+                                ?, ?, ?,
+                                ?, ?, ?,
+                                ?, ?,
+                                ?, ?, ?
+                            );
                 """
 
                 cursor.execute(route_merge, (
@@ -118,6 +118,7 @@ class SupervisionStorage:
                     session_data.get('llm_performance_analysis'),
                     session_data.get('session_status', 'active')
                 ))
+                logger.info(f"Route summary saved")
 
                 # 2. Upsert Customer Summaries
                 customer_merge = f"""
@@ -157,33 +158,34 @@ class SupervisionStorage:
 
                 for customer in customer_summaries:
                     cursor.execute(customer_merge, (
-                        # MATCHED params
-                        customer['session_id'],
-                        customer['customer_code'],
-                        customer['visit_sequence'],
-                        customer['visit_timestamp'],
-                        customer['total_skus_recommended'],
-                        customer['total_skus_sold'],
-                        customer['sku_coverage_rate'],
-                        customer['total_qty_recommended'],
-                        customer['total_qty_actual'],
-                        customer['qty_fulfillment_rate'],
-                        customer['customer_performance_score'],
-                        customer.get('llm_performance_analysis'),
-                        # NOT MATCHED params
-                        customer['session_id'],
-                        customer['customer_code'],
-                        customer['visit_sequence'],
-                        customer['visit_timestamp'],
-                        customer['total_skus_recommended'],
-                        customer['total_skus_sold'],
-                        customer['sku_coverage_rate'],
-                        customer['total_qty_recommended'],
-                        customer['total_qty_actual'],
-                        customer['qty_fulfillment_rate'],
-                        customer['customer_performance_score'],
-                        customer.get('llm_performance_analysis')
-                    ))
+                    # MATCHED params
+                    customer['session_id'],
+                    customer['customer_code'],
+                    customer['visit_sequence'],
+                    customer['visit_timestamp'],
+                    customer['total_skus_recommended'],
+                    customer['total_skus_sold'],
+                    customer['sku_coverage_rate'],
+                    customer['total_qty_recommended'],
+                    customer['total_qty_actual'],
+                    customer['qty_fulfillment_rate'],
+                    customer['customer_performance_score'],
+                    customer.get('llm_performance_analysis'),
+                    # NOT MATCHED params
+                    customer['session_id'],
+                    customer['customer_code'],
+                    customer['visit_sequence'],
+                    customer['visit_timestamp'],
+                    customer['total_skus_recommended'],
+                    customer['total_skus_sold'],
+                    customer['sku_coverage_rate'],
+                    customer['total_qty_recommended'],
+                    customer['total_qty_actual'],
+                    customer['qty_fulfillment_rate'],
+                    customer['customer_performance_score'],
+                    customer.get('llm_performance_analysis')
+                ))
+                logger.info(f"Customer summaries saved: {len(customer_summaries)} records")
 
                 # 3. Upsert Item Details
                 item_merge = f"""
@@ -255,8 +257,11 @@ class SupervisionStorage:
                         item['purchase_frequency_pct'],
                         item['visit_timestamp']
                     ))
+                logger.info(f"Item details saved: {len(item_details)} records")
 
+                logger.info(f"Committing transaction...")
                 conn.commit()
+                logger.info(f"Transaction committed successfully")
 
                 logger.info(
                     f"Saved supervision session: {session_data['session_id']} - "
@@ -272,24 +277,11 @@ class SupervisionStorage:
                 }
 
         except Exception as e:
-            if conn:
-                try:
-                    conn.rollback()
-                    logger.warning("Rolled back transaction due to error")
-                except Exception as rollback_err:
-                    logger.error(f"Rollback failed: {rollback_err}")
-
             logger.error(f"Failed to save supervision session: {e}", exc_info=True)
             return {
                 'success': False,
                 'message': f'Database error: {str(e)}'
             }
-        finally:
-            if conn:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
 
     def load_supervision_session(self, session_id: str) -> Dict[str, Any]:
         """

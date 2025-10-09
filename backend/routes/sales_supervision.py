@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, Request
 from typing import Dict, Any
 from datetime import datetime
 import pandas as pd
@@ -687,7 +687,7 @@ async def save_supervision_state(request: Request):
         journey_df = data_manager.get_journey_plan()
         journey_filtered = journey_df[
             (journey_df['RouteCode'].astype(str) == str(route_code)) &
-            (journey_df['TrxDate'].dt.date == target_date.date())
+            (journey_df['JourneyDate'].dt.date == target_date.date())
         ]
         total_customers_planned = len(journey_filtered['CustomerCode'].unique()) if not journey_filtered.empty else 0
 

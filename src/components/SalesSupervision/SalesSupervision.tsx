@@ -252,8 +252,7 @@ const SalesSupervision: React.FC = () => {
 
     try {
       // STEP 1: Check if saved supervision session exists for this route+date
-      const savedSessionResponse = await salesSupervisionAPI.loadSupervisionState(selectedRoute, selectedDate);
-      const savedSession = savedSessionResponse.data;
+      const savedSession = await salesSupervisionAPI.loadSupervisionState(selectedRoute, selectedDate);
 
       // Load sales data (always needed for recommended order display)
       const data = await getSalesSupervisionData({
@@ -882,8 +881,7 @@ const SalesSupervision: React.FC = () => {
       };
 
       // Call the save API
-      const response = await salesSupervisionAPI.saveSupervisionState(payload);
-      const result = response.data;
+      const result = await salesSupervisionAPI.saveSupervisionState(payload);
 
       if (result.success) {
         setSuccessMessage(`Session saved successfully! ${result.customers_saved} customers and ${result.items_saved} items saved.`);
@@ -1007,12 +1005,6 @@ const SalesSupervision: React.FC = () => {
             </button>
           </div>
         </div>
-
-        {successMessage && !loading && (
-          <Message type="success" icon={<CheckCircle />}>
-            {successMessage}
-          </Message>
-        )}
 
         {redistributionMessage && (
           <Message type="info" icon={<TrendingUp />}>
@@ -1384,50 +1376,61 @@ const SalesSupervision: React.FC = () => {
 
             {/* Route Summary and Save Buttons - Shows when at least 1 customer is visited */}
             {visitedCustomers.size > 0 && (dynamicSession || isHistoricalMode) && (
-              <div className="mt-4 flex justify-center gap-3">
-                {/* Route Summary - Available in both modes */}
-                <button
-                  onClick={handleRouteAnalysis}
-                  disabled={loadingRouteAnalysis || (isHistoricalMode && routeAnalysis !== null)}
-                  className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
-                >
-                  {loadingRouteAnalysis ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <TrendingUp className="w-5 h-5" />
-                  )}
-                  {isHistoricalMode && routeAnalysis ? 'View Route Summary' : 'Route Summary'}
-                  <span className="text-sm bg-white/20 px-2 py-0.5 rounded-full ml-2">
-                    {visitedCustomers.size}/{salesData?.recommendedOrderSection.totalCustomers || 0} visited
-                  </span>
-                </button>
-
-                {/* Save Button - Only in LIVE mode */}
-                {!isHistoricalMode && (
+              <>
+                <div className="mt-4 flex justify-center gap-3">
+                  {/* Route Summary - Available in both modes */}
                   <button
-                    onClick={handleSaveSupervisionState}
-                    disabled={saving}
-                    className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-lg shadow-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
+                    onClick={handleRouteAnalysis}
+                    disabled={loadingRouteAnalysis || (isHistoricalMode && routeAnalysis !== null)}
+                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
                   >
-                    {saving ? (
+                    {loadingRouteAnalysis ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     ) : (
-                      <CheckCircle className="w-5 h-5" />
+                      <TrendingUp className="w-5 h-5" />
                     )}
-                    Save Session
+                    {isHistoricalMode && routeAnalysis ? 'View Route Summary' : 'Route Summary'}
+                    <span className="text-sm bg-white/20 px-2 py-0.5 rounded-full ml-2">
+                      {visitedCustomers.size}/{salesData?.recommendedOrderSection.totalCustomers || 0} visited
+                    </span>
                   </button>
-                )}
 
-                {/* Historical Mode Badge */}
-                {isHistoricalMode && (
-                  <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="text-sm font-semibold text-blue-700">Saved Session (Read-Only)</span>
+                  {/* Save Button - Only in LIVE mode */}
+                  {!isHistoricalMode && (
+                    <button
+                      onClick={handleSaveSupervisionState}
+                      disabled={saving}
+                      className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-lg shadow-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
+                    >
+                      {saving ? (
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <CheckCircle className="w-5 h-5" />
+                      )}
+                      Save Session
+                    </button>
+                  )}
+
+                  {/* Historical Mode Badge */}
+                  {isHistoricalMode && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-sm font-semibold text-blue-700">Saved Session (Read-Only)</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Success Message - Below Save Button */}
+                {successMessage && !loading && !isHistoricalMode && (
+                  <div className="mt-4 flex justify-center">
+                    <Message type="success" icon={<CheckCircle />}>
+                      {successMessage}
+                    </Message>
                   </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         )}

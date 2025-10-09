@@ -71,6 +71,7 @@ backend/output/supervision/*.json
 # Cache files
 backend/data/cache/*
 !backend/data/cache/.gitkeep
+backend/cache/
 *.cache
 .cache/
 
