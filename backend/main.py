@@ -337,6 +337,14 @@ async def health_check():
     data_status = data_manager.get_summary()
     data_healthy = data_status.get('loaded', False)
 
+    # Check data freshness
+    data_age_hours = None
+    is_stale = True
+    if data_manager.last_refresh:
+        data_age = datetime.now() - data_manager.last_refresh
+        data_age_hours = round(data_age.total_seconds() / 3600, 1)
+        is_stale = data_age_hours > 24
+
     # Check background loading status
     loading_status = "complete" if _data_loading_complete else "in_progress"
     if _data_loading_thread and not _data_loading_thread.is_alive() and not _data_loading_complete:
@@ -351,8 +359,14 @@ async def health_check():
     config_validation = validate_config()
     config_healthy = config_validation.get('valid', False)
 
-    # Overall health status - server is healthy even if data is still loading
+    # Check scheduler
+    scheduler_status = get_scheduler_status()
+    scheduler_healthy = scheduler_status.get('running', False)
+
+    # Overall health status - degraded if data is very stale (>48 hours)
     overall_healthy = db_healthy and config_healthy
+    if data_age_hours and data_age_hours > 48:
+        overall_healthy = False
 
     health_response = {
         "status": "healthy" if overall_healthy else "degraded",
@@ -373,6 +387,8 @@ async def health_check():
                 "loaded": data_healthy,
                 "loading_status": loading_status,
                 "last_refresh": data_status.get('last_refresh'),
+                "age_hours": data_age_hours,
+                "is_stale": is_stale,
                 "records": {
                     "demand": data_status.get('demand_records', 0),
                     "customer": data_status.get('customer_records', 0),
@@ -384,6 +400,13 @@ async def health_check():
                 "valid": config_healthy,
                 "issues": config_validation.get('issues', []),
                 "warnings": config_validation.get('warnings', [])
+            },
+            "scheduler": {
+                "status": "healthy" if scheduler_healthy else "unhealthy",
+                "running": scheduler_healthy,
+                "timezone": scheduler_status.get('timezone'),
+                "jobs": scheduler_status.get('jobs', []),
+                "message": scheduler_status.get('message')
             }
         },
         "system": {

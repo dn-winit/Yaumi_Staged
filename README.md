@@ -1,199 +1,103 @@
-# Yaumi Analytics Platform
+# 🎯 Yaumi Analytics Platform
 
-Professional analytics platform for demand forecasting, inventory optimization, and sales supervision.
+**Professional Sales Intelligence & Forecasting System for WINIT**
 
-## Features
+Version 2.0.0 | Production Ready
 
-- **Demand Dashboard**: Historical sales analytics and insights
-- **Demand Forecast**: Advanced predictive analytics
-- **Recommended Orders**: Intelligent order recommendations
-- **Sales Supervision**: Real-time route monitoring and inventory management
+---
 
-## Architecture
+## 📋 Overview
 
-```
-webapp/
-├── backend/               # FastAPI Backend
-│   ├── main.py           # Application entry point
-│   ├── config.py         # Backend configuration
-│   ├── routes/           # API endpoints
-│   ├── models/           # Data models
-│   ├── utils/            # Utility functions
-│   └── static/           # Data files (CSV)
-│
-└── src/                  # React Frontend
-    ├── components/       # UI components
-    ├── services/         # API services
-    ├── types/           # TypeScript types
-    ├── config/          # Frontend configuration
-    └── App.tsx          # Main application
-```
+Enterprise-grade analytics platform for sales demand forecasting, intelligent recommendations, and real-time supervision.
 
-## Tech Stack
+### **Core Modules:**
+- 🎯 **Demand Forecasting** - AI-powered demand prediction
+- 🛍️ **Recommended Orders** - Tiered recommendation engine
+- 👁️ **Sales Supervision** - Real-time route monitoring with LLM analysis
+- 📊 **Analytics Dashboard** - Performance insights and KPIs
 
-### Backend
-- **FastAPI** - Modern Python web framework
-- **Pandas** - Data processing and analysis
-- **Uvicorn** - ASGI server
-- **Pydantic** - Data validation
+---
 
-### Frontend
-- **React** - UI framework
-- **TypeScript** - Type-safe JavaScript
-- **Tailwind CSS** - Utility-first CSS
-- **Recharts** - Data visualization
-- **Vite** - Build tool
-
-## Installation
+## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.8+
-- Node.js 16+
-- npm or yarn
+- Python 3.11+
+- Node.js 18+
+- SQL Server (YaumiAIML database access)
+- Groq API key (for LLM features)
 
-### Backend Setup
+### Installation
 
 ```bash
-# Navigate to webapp directory
-cd webapp
-
-# Install Python dependencies
+# 1. Install backend
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# Run backend server
-cd backend
-python main.py
-```
-
-Backend will be available at: http://localhost:8000
-
-### Frontend Setup
-
-```bash
-# From webapp directory
+# 2. Install frontend
 npm install
 
-# Run development server
+# 3. Configure environment
+cp .env.example .env
+# Edit .env with your credentials
+
+# 4. Run backend
+python -m backend.main
+
+# 5. Run frontend (new terminal)
 npm run dev
 ```
 
-Frontend will be available at: http://localhost:5173
+**Access:** http://localhost:5173
 
-## Data Requirements
+---
 
-Place the following CSV files in `backend/static/`:
-- `demand_data.csv` - Historical demand data
-- `customer_sales_data.csv` - Customer purchase history
-- `journey_plan_data.csv` - Route planning data
-- `merged_daily_forecasts.csv` - Daily forecast data
-- `merged_weekly_forecasts.csv` - Weekly forecast data
-- `merged_monthly_forecasts.csv` - Monthly forecast data
-- `processed_historical_predictions.csv` - Historical predictions
+## 📚 Documentation
 
-## API Documentation
+- **[Complete Documentation](./docs/README.md)** - All guides and references
+- **[Deployment Guide](./docs/deployment/DEPLOYMENT_CHECKLIST.md)** - Production deployment
+- **[Database Setup](./docs/setup/RECOMMENDATION_DATABASE_SETUP.md)** - Database configuration
 
-With the backend running, access:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+---
 
-## Development
+## 🏗️ Architecture
 
-### Running Both Servers
-
-```bash
-# Terminal 1 - Backend
-cd webapp/backend
-python main.py
-
-# Terminal 2 - Frontend
-cd webapp
-npm run dev
+```
+Yaumi_Live/
+├── backend/           # FastAPI backend
+│   ├── core/         # Business logic
+│   ├── routes/       # API endpoints
+│   ├── database/     # DB connections & migrations
+│   ├── models/       # Data models
+│   └── prompts/      # LLM templates
+├── src/              # React frontend
+│   ├── components/   # UI components
+│   ├── services/     # API clients
+│   └── types/        # TypeScript types
+└── docs/             # Documentation
 ```
 
-### Building for Production
+---
 
-```bash
-# Build frontend
-npm run build
+## 🔒 Security
 
-# Output will be in dist/ directory
-```
+- Environment-based configuration
+- SQL injection prevention
+- Input validation & rate limiting
+- Transaction integrity
 
-## Project Structure
+See **[SECURITY.md](./docs/SECURITY.md)** for details.
 
-### Backend Routes
-- `/api/dashboard/*` - Dashboard data endpoints
-- `/api/forecast/*` - Forecast data endpoints
-- `/api/recommended-order/*` - Order recommendation endpoints
-- `/api/sales-supervision/*` - Sales supervision endpoints
+---
 
-### Frontend Components
-- `Dashboard/` - Sales analytics dashboard
-- `Forecast/` - Forecasting interface
-- `RecommendedOrder/` - Order recommendations
-- `SalesSupervision/` - Sales monitoring
-- `Home/` - Landing page
-- `common/` - Shared components
+## 📝 Version History
 
-## Configuration
+### v2.0.0 (2025-01-10)
+- ✅ Sales Supervision production fixes
+- ✅ LLM caching & rate limiting
+- ✅ Transaction rollback protection
+- ✅ Historical mode implementation
 
-### Backend (`backend/config.py`)
-- API prefix and version
-- CORS origins
-- Data file paths
-- Pagination settings
+---
 
-### Frontend (`src/config/index.ts`)
-- API base URL
-- App settings
-- Feature flags
-- UI configurations
-
-## Environment Variables
-
-### Backend (.env)
-```bash
-# Required
-GROQ_API_KEY=your_analytics_api_key_here
-
-# Optional
-LOG_LEVEL=INFO  # Logging level
-```
-
-### Frontend (.env)
-```bash
-# Optional - defaults to local backend
-VITE_API_URL=http://localhost:8000/api
-```
-
-## Features in Detail
-
-### Dashboard
-- View historical sales trends
-- Filter by route, item, and date range
-- Interactive charts and tables
-- Export capabilities
-
-### Forecast
-- Advanced predictive analytics
-- Daily, weekly, and monthly views
-- Accuracy metrics
-- Trend analysis
-
-### Recommended Order
-- Customer-specific recommendations
-- Item quantity suggestions
-- Order optimization
-- Historical performance
-
-### Sales Supervision
-- Real-time sales tracking with analytics engine
-- FMCG-optimized performance scoring (75-120% optimal range)
-- Dynamic inventory redistribution during route execution
-- Customer visit tracking with individual performance analysis
-- Route summary with comprehensive metrics dashboard
-- Automated actionable insights for field supervision
-
-## Support
-
-For issues or questions, please check the documentation or contact the development team.
+**Built for Professional Sales Intelligence** 🚀

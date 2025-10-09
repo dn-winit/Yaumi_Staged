@@ -138,10 +138,14 @@ const SalesSupervision: React.FC = () => {
   const [generatingRecommendations, setGeneratingRecommendations] = useState(false);
   const [expandedCustomers, setExpandedCustomers] = useState<Set<number>>(new Set());
   const [visitedCustomers, setVisitedCustomers] = useState<Set<string>>(new Set());
+  const [visitSequence, setVisitSequence] = useState<Map<string, number>>(new Map());
   const [dynamicSession, setDynamicSession] = useState<SessionSummary | null>(null);
   const [actualQuantities, setActualQuantities] = useState<{ [key: string]: { [key: string]: number } }>({});
   const [editingItem, setEditingItem] = useState<EditingItemState | null>(null);
+  const [saving, setSaving] = useState(false);
   const [processingVisit, setProcessingVisit] = useState<string | null>(null);
+  const [isHistoricalMode, setIsHistoricalMode] = useState(false);
+  const [savedSessionId, setSavedSessionId] = useState<string | null>(null);
   const [adjustments, setAdjustments] = useState<{ [key: string]: { [key: string]: number } }>({});
   const [redistributionMessage, setRedistributionMessage] = useState<string | null>(null);
   const [showScoreModal, setShowScoreModal] = useState(false);
@@ -157,10 +161,22 @@ const SalesSupervision: React.FC = () => {
   const [showScoringMethodologyModal, setShowScoringMethodologyModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [customerAnalyses, setCustomerAnalyses] = useState<{[key: string]: CustomerAnalysisResult}>({});
+  const [lastLLMCallTime, setLastLLMCallTime] = useState<{[key: string]: number}>({});
 
   useEffect(() => {
     loadFilterOptions();
   }, []);
+
+  // Network timeout helper
+  const apiCallWithTimeout = async <T,>(apiCall: Promise<T>, timeoutMs: number = 60000): Promise<T> => {
+    return Promise.race([
+      apiCall,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
+      )
+    ]);
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -217,31 +233,130 @@ const SalesSupervision: React.FC = () => {
 
     setLoading(true);
     setError(null);
-    // Don't clear success message if we're reloading after generation
     if (!generatingRecommendations) {
       setSuccessMessage(null);
     }
-    setExpandedCustomers(new Set()); // Reset expanded customers
-    setVisitedCustomers(new Set()); // Reset visited customers
-    setActualQuantities({}); // Reset actual quantities
-    setAdjustments({}); // Reset adjustments
+
+    // Reset all state
+    setExpandedCustomers(new Set());
+    setVisitedCustomers(new Set());
+    setVisitSequence(new Map());
+    setActualQuantities({});
+    setAdjustments({});
+    setIsHistoricalMode(false);
+    setSavedSessionId(null);
+    setDynamicSession(null);
+    setCustomerAnalyses({});
+    setRouteAnalysis(null);
+    setLastLLMCallTime({});
 
     try {
-      // Load sales data first
+      // STEP 1: Check if saved supervision session exists for this route+date
+      const savedSessionResponse = await salesSupervisionAPI.loadSupervisionState(selectedRoute, selectedDate);
+      const savedSession = savedSessionResponse.data;
+
+      // Load sales data (always needed for recommended order display)
       const data = await getSalesSupervisionData({
         route_code: selectedRoute,
         date: selectedDate
       }) as unknown as SalesData;
       setSalesData(data);
 
-      // Initialize dynamic supervision session if recommendations exist
-      if (data.recommendedOrderSection.hasData) {
-        try {
-          const sessionResult = await salesSupervisionAPI.initializeDynamicSession(selectedRoute, selectedDate);
-          setDynamicSession(sessionResult.session);
-        } catch {
-          // Non-critical error, continue without dynamic features
-          setError(null); // Clear any previous errors since this is non-critical
+      // STEP 2: Determine mode based on saved session existence
+      if (savedSession.exists && savedSession.mode === 'historical') {
+        // HISTORICAL MODE - Load saved data and enable read-only
+        setIsHistoricalMode(true);
+        setSavedSessionId(savedSession.session_id);
+
+        // Populate visited customers (read-only)
+        const visitedSet = new Set<string>(savedSession.visited_customers);
+        setVisitedCustomers(visitedSet);
+
+        // Populate visit sequences (read-only)
+        const sequenceMap = new Map<string, number>(
+          Object.entries(savedSession.visit_sequences)
+        );
+        setVisitSequence(sequenceMap);
+
+        // Populate actual quantities (read-only)
+        setActualQuantities(savedSession.actual_quantities);
+
+        // Populate adjustments (read-only)
+        setAdjustments(savedSession.adjustments);
+
+        // Set route analysis if available
+        if (savedSession.route_analysis) {
+          setRouteAnalysis({
+            route_code: selectedRoute,
+            date: selectedDate,
+            route_summary: savedSession.route_analysis,
+            high_performers: [],
+            needs_attention: [],
+            route_strengths: [],
+            route_weaknesses: [],
+            optimization_opportunities: [],
+            overstocked_items: [],
+            understocked_items: [],
+            coaching_areas: [],
+            best_practices: [],
+            metrics: savedSession.session_summary
+          });
+        }
+
+        // Restore customer analyses if available
+        if (savedSession.customer_analyses) {
+          const parsedAnalyses: {[key: string]: CustomerAnalysisResult} = {};
+          for (const [customerCode, analysisData] of Object.entries(savedSession.customer_analyses)) {
+            try {
+              if (typeof analysisData === 'string') {
+                parsedAnalyses[customerCode] = JSON.parse(analysisData);
+              } else {
+                parsedAnalyses[customerCode] = analysisData as CustomerAnalysisResult;
+              }
+            } catch (e) {
+              // Fallback: treat as plain text summary
+              parsedAnalyses[customerCode] = {
+                customer_code: customerCode,
+                performance_summary: String(analysisData),
+                strengths: [],
+                weaknesses: [],
+                likely_reasons: [],
+                immediate_actions: [],
+                follow_up_actions: [],
+                identified_patterns: [],
+                red_flags: [],
+                performance_score: 0,
+                total_items: 0,
+                total_recommended: 0,
+                total_actual: 0
+              };
+            }
+          }
+          setCustomerAnalyses(parsedAnalyses);
+        }
+
+        setSuccessMessage(`📋 Loaded saved session from ${selectedDate} (Read-Only Mode)`);
+
+      } else {
+        // LIVE MODE - Enable real-time supervision
+        setIsHistoricalMode(false);
+
+        // Initialize dynamic supervision session if recommendations exist
+        if (data.recommendedOrderSection.hasData) {
+          try {
+            const sessionResult = await apiCallWithTimeout(
+              salesSupervisionAPI.initializeDynamicSession(selectedRoute, selectedDate),
+              30000
+            );
+            setDynamicSession(sessionResult.session);
+          } catch (err: any) {
+            console.error('Failed to initialize dynamic session:', err);
+            const errorMsg = err.message === 'Request timeout'
+              ? 'Session initialization timed out. Real-time redistribution unavailable.'
+              : 'Warning: Real-time redistribution unavailable. You can still supervise manually.';
+            setError(errorMsg);
+            setTimeout(() => setError(null), 5000); // Clear after 5 seconds
+          }
         }
       }
     } catch (err) {
@@ -324,6 +439,16 @@ const SalesSupervision: React.FC = () => {
   };
 
   const toggleCustomerVisited = async (customerCode: string) => {
+    // Block in historical mode (read-only)
+    if (isHistoricalMode) {
+      return; // Silently ignore - button will be disabled anyway
+    }
+
+    // Prevent rapid clicks while processing
+    if (processingVisit !== null) {
+      return;
+    }
+
     const isCurrentlyVisited = visitedCustomers.has(customerCode);
 
     if (isCurrentlyVisited) {
@@ -331,11 +456,22 @@ const SalesSupervision: React.FC = () => {
       const newVisited = new Set(visitedCustomers);
       newVisited.delete(customerCode);
       setVisitedCustomers(newVisited);
+
+      // Remove visit sequence
+      const newSequence = new Map(visitSequence);
+      newSequence.delete(customerCode);
+      setVisitSequence(newSequence);
     } else {
-      // Mark as visited and process with dynamic session
+      // Mark as visited and assign sequence number
       const newVisited = new Set(visitedCustomers);
       newVisited.add(customerCode);
       setVisitedCustomers(newVisited);
+
+      // Assign visit sequence (next available number)
+      const newSequence = new Map(visitSequence);
+      const nextSequence = Math.max(0, ...Array.from(newSequence.values())) + 1;
+      newSequence.set(customerCode, nextSequence);
+      setVisitSequence(newSequence);
 
       // If dynamic session is active, process the visit
       const selectedRoute = selectedRoutes.length > 0 ? selectedRoutes[0] : '';
@@ -385,11 +521,24 @@ const SalesSupervision: React.FC = () => {
   };
   
   const updateActualQuantity = (customerCode: string, itemCode: string, quantity: number) => {
+    // Validate quantity
+    let validatedQty = quantity;
+
+    if (isNaN(validatedQty) || validatedQty < 0) {
+      validatedQty = 0;
+    }
+
+    if (validatedQty > 999999) {
+      setError('Quantity cannot exceed 999,999');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
     setActualQuantities(prev => ({
       ...prev,
       [customerCode]: {
         ...prev[customerCode],
-        [itemCode]: Math.max(0, quantity)
+        [itemCode]: validatedQty
       }
     }));
   };
@@ -400,7 +549,13 @@ const SalesSupervision: React.FC = () => {
   
   const saveItemQuantity = (customerCode: string, itemCode: string) => {
     if (editingItem && editingItem.customerCode === customerCode && editingItem.itemCode === itemCode) {
-      const quantity = parseInt(editingItem.value) || 0;
+      let quantity = parseInt(editingItem.value);
+
+      // Validate input
+      if (isNaN(quantity)) {
+        quantity = 0;
+      }
+
       updateActualQuantity(customerCode, itemCode, quantity);
     }
     setEditingItem(null);
@@ -505,9 +660,36 @@ const SalesSupervision: React.FC = () => {
       return;
     }
 
-    setLoadingAnalysis(customerCode);
-    try {
+    // If already analyzed (in state or historical), show existing
+    if (customerAnalyses[customerCode]) {
+      setCurrentAnalysis(customerAnalyses[customerCode]);
+      setShowAnalysisModal(true);
+      return;
+    }
 
+    // Block new generation in historical mode
+    if (isHistoricalMode) {
+      setError('Customer analysis not available for this saved session');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    // Rate limiting: 5 seconds cooldown per customer
+    const now = Date.now();
+    const lastTime = lastLLMCallTime[`customer_${customerCode}`] || 0;
+    const COOLDOWN_MS = 5000;
+
+    if (now - lastTime < COOLDOWN_MS) {
+      const remainingSeconds = Math.ceil((COOLDOWN_MS - (now - lastTime)) / 1000);
+      setError(`Please wait ${remainingSeconds}s before requesting another analysis`);
+      setTimeout(() => setError(null), 2000);
+      return;
+    }
+
+    setLoadingAnalysis(customerCode);
+    setLastLLMCallTime(prev => ({ ...prev, [`customer_${customerCode}`]: now }));
+
+    try {
       // Get current actual quantities (including frontend edits)
       const actualQtys = actualQuantities[customerCode] || {};
 
@@ -526,12 +708,15 @@ const SalesSupervision: React.FC = () => {
           : item.actualQuantity;
       });
 
-      // Call backend API with complete actual quantities
-      const result = await salesSupervisionAPI.analyzeCustomerPerformanceWithUpdates(
-        selectedRoute,
-        selectedDate,
-        customerCode,
-        completeActualQtys
+      // Call backend API with timeout
+      const result = await apiCallWithTimeout(
+        salesSupervisionAPI.analyzeCustomerPerformanceWithUpdates(
+          selectedRoute,
+          selectedDate,
+          customerCode,
+          completeActualQtys
+        ),
+        60000
       );
 
       // Calculate SKUs sold from frontend data if not returned from backend
@@ -539,11 +724,21 @@ const SalesSupervision: React.FC = () => {
         result.skus_sold = Object.values(completeActualQtys).filter(qty => qty > 0).length;
       }
 
+      // Save to state for later use
+      setCustomerAnalyses(prev => ({
+        ...prev,
+        [customerCode]: result
+      }));
+
       setCurrentAnalysis(result);
       setShowAnalysisModal(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to generate customer analysis:', err);
-      setError('Failed to generate AI analysis. Please try again.');
+      const errorMsg = err.message === 'Request timeout'
+        ? 'Customer analysis timed out. Please try again.'
+        : 'Failed to generate AI analysis. Please try again.';
+      setError(errorMsg);
+      setTimeout(() => setError(null), 5000);
     } finally {
       setLoadingAnalysis(null);
     }
@@ -556,12 +751,45 @@ const SalesSupervision: React.FC = () => {
       return;
     }
 
-    setLoadingRouteAnalysis(true);
-    try {
+    // If in historical mode and analysis exists, just show it
+    if (isHistoricalMode) {
+      if (routeAnalysis) {
+        setShowRouteAnalysisModal(true);
+      } else {
+        setError('Route analysis not available for this saved session');
+        setTimeout(() => setError(null), 3000);
+      }
+      return;
+    }
 
+    // If already analyzed in current session, show existing
+    if (routeAnalysis) {
+      setShowRouteAnalysisModal(true);
+      return;
+    }
+
+    // Rate limiting: 10 seconds cooldown for route analysis
+    const now = Date.now();
+    const lastTime = lastLLMCallTime['route_analysis'] || 0;
+    const COOLDOWN_MS = 10000;
+
+    if (now - lastTime < COOLDOWN_MS) {
+      const remainingSeconds = Math.ceil((COOLDOWN_MS - (now - lastTime)) / 1000);
+      setError(`Please wait ${remainingSeconds}s before requesting route analysis`);
+      setTimeout(() => setError(null), 2000);
+      return;
+    }
+
+    setLoadingRouteAnalysis(true);
+    setLastLLMCallTime(prev => ({ ...prev, 'route_analysis': now }));
+
+    try {
       // First fetch the session summary to get consistent metrics
       if (!endOfDaySummary) {
-        const summary = await salesSupervisionAPI.getDynamicSessionSummary(selectedRoute, selectedDate);
+        const summary = await apiCallWithTimeout(
+          salesSupervisionAPI.getDynamicSessionSummary(selectedRoute, selectedDate),
+          30000
+        );
         setEndOfDaySummary(summary);
       }
 
@@ -588,21 +816,86 @@ const SalesSupervision: React.FC = () => {
         };
       });
 
-      // Call new backend API with real visited customer context
-      const result = await salesSupervisionAPI.analyzeRoutePerformanceWithVisitedData(
-        selectedRoute,
-        selectedDate,
-        allCustomers, // Complete recommended order
-        visitedCustomersData // Real visited customers with actual quantities
+      // Call backend API with timeout
+      const result = await apiCallWithTimeout(
+        salesSupervisionAPI.analyzeRoutePerformanceWithVisitedData(
+          selectedRoute,
+          selectedDate,
+          allCustomers, // Complete recommended order
+          visitedCustomersData // Real visited customers with actual quantities
+        ),
+        60000
       );
 
       setRouteAnalysis(result);
       setShowRouteAnalysisModal(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to generate route analysis:', err);
-      setError('Failed to generate route AI analysis. Please try again.');
+      const errorMsg = err.message === 'Request timeout'
+        ? 'Route analysis timed out. Please try again.'
+        : 'Failed to generate route AI analysis. Please try again.';
+      setError(errorMsg);
+      setTimeout(() => setError(null), 5000);
     } finally {
       setLoadingRouteAnalysis(false);
+    }
+  };
+
+  const handleSaveSupervisionState = async () => {
+    const selectedRoute = selectedRoutes.length > 0 ? selectedRoutes[0] : '';
+    if (!selectedRoute || !selectedDate || !salesData) {
+      setError('Missing route, date, or sales data information');
+      return;
+    }
+
+    if (visitedCustomers.size === 0) {
+      setError('No visited customers to save');
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      // Build visited customers array with visit sequence and customer analyses
+      const visitedCustomersArray = Array.from(visitedCustomers).map(customerCode => {
+        const analysis = customerAnalyses[customerCode];
+        return {
+          customer_code: customerCode,
+          visit_sequence: visitSequence.get(customerCode) || 0,
+          llm_analysis: analysis ? JSON.stringify(analysis) : '' // Save as JSON string
+        };
+      });
+
+      // Get route-level LLM analysis if available
+      const routeLLMAnalysis = routeAnalysis?.route_summary || '';
+
+      // Prepare the payload
+      const payload = {
+        route_code: selectedRoute,
+        date: selectedDate,
+        visited_customers: visitedCustomersArray,
+        actual_quantities: actualQuantities,
+        adjustments: adjustments,
+        route_llm_analysis: routeLLMAnalysis
+      };
+
+      // Call the save API
+      const response = await salesSupervisionAPI.saveSupervisionState(payload);
+      const result = response.data;
+
+      if (result.success) {
+        setSuccessMessage(`Session saved successfully! ${result.customers_saved} customers and ${result.items_saved} items saved.`);
+        setTimeout(() => setSuccessMessage(null), 5000);
+      } else {
+        setError(result.message || 'Failed to save supervision state');
+      }
+    } catch (err) {
+      console.error('Failed to save supervision state:', err);
+      setError('Failed to save supervision session. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -900,7 +1193,7 @@ const SalesSupervision: React.FC = () => {
                                 <label className="text-xs font-medium text-gray-700">Visited</label>
                                 <button
                                   onClick={() => toggleCustomerVisited(customer.customerCode)}
-                                  disabled={processingVisit === customer.customerCode}
+                                  disabled={isHistoricalMode || processingVisit === customer.customerCode}
                                   className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
                                     isVisited ? 'bg-green-600' : 'bg-gray-300'
                                   }`}
@@ -1016,7 +1309,7 @@ const SalesSupervision: React.FC = () => {
                                         <td className="py-1.5 px-2 text-gray-900">{item.itemCode}</td>
                                         <td className="py-1.5 px-2 text-gray-700">{item.itemName}</td>
                                         <td className="py-1.5 px-2 text-right text-gray-900">
-                                          {isVisited ? (
+                                          {isVisited || isHistoricalMode ? (
                                             actualQty
                                           ) : (
                                             isEditing ? (
@@ -1036,7 +1329,7 @@ const SalesSupervision: React.FC = () => {
                                                 />
                                               </div>
                                             ) : (
-                                              <span 
+                                              <span
                                                 className="cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded"
                                                 onClick={() => handleItemQuantityEdit(customer.customerCode, item.itemCode, actualQty.toString())}
                                               >
@@ -1089,12 +1382,13 @@ const SalesSupervision: React.FC = () => {
               )}
             </div>
 
-            {/* Route Summary Button - Shows when at least 1 customer is visited */}
-            {visitedCustomers.size > 0 && dynamicSession && (
-              <div className="mt-4 flex justify-center">
+            {/* Route Summary and Save Buttons - Shows when at least 1 customer is visited */}
+            {visitedCustomers.size > 0 && (dynamicSession || isHistoricalMode) && (
+              <div className="mt-4 flex justify-center gap-3">
+                {/* Route Summary - Available in both modes */}
                 <button
                   onClick={handleRouteAnalysis}
-                  disabled={loadingRouteAnalysis}
+                  disabled={loadingRouteAnalysis || (isHistoricalMode && routeAnalysis !== null)}
                   className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
                 >
                   {loadingRouteAnalysis ? (
@@ -1102,11 +1396,37 @@ const SalesSupervision: React.FC = () => {
                   ) : (
                     <TrendingUp className="w-5 h-5" />
                   )}
-                  Route Summary
+                  {isHistoricalMode && routeAnalysis ? 'View Route Summary' : 'Route Summary'}
                   <span className="text-sm bg-white/20 px-2 py-0.5 rounded-full ml-2">
                     {visitedCustomers.size}/{salesData?.recommendedOrderSection.totalCustomers || 0} visited
                   </span>
                 </button>
+
+                {/* Save Button - Only in LIVE mode */}
+                {!isHistoricalMode && (
+                  <button
+                    onClick={handleSaveSupervisionState}
+                    disabled={saving}
+                    className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-lg shadow-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
+                  >
+                    {saving ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <CheckCircle className="w-5 h-5" />
+                    )}
+                    Save Session
+                  </button>
+                )}
+
+                {/* Historical Mode Badge */}
+                {isHistoricalMode && (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm font-semibold text-blue-700">Saved Session (Read-Only)</span>
+                  </div>
+                )}
               </div>
             )}
           </div>

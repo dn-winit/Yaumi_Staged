@@ -23,6 +23,7 @@ class RecommendationStorage:
     def save_recommendations(self, recommendations_df: pd.DataFrame, date: str, route_code: str) -> Dict[str, Any]:
         """
         Save daily recommendations to database with bulk insert
+        Note: Recommendations are immutable (one-time per date). Cron job checks existence before calling.
 
         Args:
             recommendations_df: DataFrame with recommendation data
@@ -40,69 +41,57 @@ class RecommendationStorage:
                     'records_saved': 0
                 }
 
-            # Delete existing records for this date/route (if regenerating)
-            delete_query = f"""
-                DELETE FROM {self.table_name}
-                WHERE trx_date = ? AND route_code = ?
+            # Prepare bulk insert query
+            insert_query = f"""
+                INSERT INTO {self.table_name} (
+                    trx_date, route_code, customer_code, item_code, item_name,
+                    actual_quantity, recommended_quantity, tier, van_load, priority_score,
+                    avg_quantity_per_visit, days_since_last_purchase,
+                    purchase_cycle_days, frequency_percent,
+                    generated_at, generated_by
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
 
+            # Prepare data for bulk insert
+            generated_at = datetime.now()
+            records = []
+
+            for _, row in recommendations_df.iterrows():
+                records.append((
+                    row['TrxDate'],
+                    str(row['RouteCode']),
+                    str(row['CustomerCode']),
+                    str(row['ItemCode']),
+                    str(row['ItemName']),
+                    int(row.get('ActualQuantity', 0)),
+                    int(row['RecommendedQuantity']),
+                    str(row['Tier']),
+                    int(row['VanLoad']),
+                    float(row['PriorityScore']),
+                    int(row['AvgQuantityPerVisit']),
+                    int(row['DaysSinceLastPurchase']),
+                    float(row['PurchaseCycleDays']),
+                    float(row['FrequencyPercent']),
+                    generated_at,
+                    'SYSTEM_CRON'
+                ))
+
+            # Execute bulk insert
             with self.db_manager.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(delete_query, (date, route_code))
-                deleted_count = cursor.rowcount
-
-                if deleted_count > 0:
-                    logger.info(f"Deleted {deleted_count} existing recommendations for {date}, route {route_code}")
-
-                # Prepare bulk insert
-                insert_query = f"""
-                    INSERT INTO {self.table_name} (
-                        trx_date, route_code, customer_code, item_code, item_name,
-                        actual_quantity, recommended_quantity, tier, van_load, priority_score,
-                        avg_quantity_per_visit, days_since_last_purchase,
-                        purchase_cycle_days, frequency_percent,
-                        generated_at, generated_by
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """
-
-                # Prepare data for bulk insert
-                generated_at = datetime.now()
-                records = []
-
-                for _, row in recommendations_df.iterrows():
-                    records.append((
-                        row['TrxDate'],
-                        str(row['RouteCode']),
-                        str(row['CustomerCode']),
-                        str(row['ItemCode']),
-                        str(row['ItemName']),
-                        int(row.get('ActualQuantity', 0)),
-                        int(row['RecommendedQuantity']),
-                        str(row['Tier']),
-                        int(row['VanLoad']),
-                        float(row['PriorityScore']),
-                        int(row['AvgQuantityPerVisit']),
-                        int(row['DaysSinceLastPurchase']),
-                        float(row['PurchaseCycleDays']),
-                        float(row['FrequencyPercent']),
-                        generated_at,
-                        'SYSTEM_CRON'
-                    ))
-
-                # Bulk insert with executemany for performance
                 cursor.executemany(insert_query, records)
                 conn.commit()
 
-                logger.info(f"Saved {len(records)} recommendations to database for {date}, route {route_code}")
+            logger.info(f"Saved {len(records)} recommendations to database for {date}, route {route_code}")
 
-                return {
-                    'success': True,
-                    'message': f'Successfully saved {len(records)} recommendations',
-                    'records_saved': len(records),
-                    'date': date,
-                    'route_code': route_code,
-                    'generated_at': generated_at.isoformat()
-                }
+            return {
+                'success': True,
+                'message': f'Successfully saved {len(records)} recommendations',
+                'records_saved': len(records),
+                'date': date,
+                'route_code': route_code,
+                'generated_at': generated_at.isoformat()
+            }
 
         except Exception as e:
             logger.error(f"Failed to save recommendations: {e}", exc_info=True)

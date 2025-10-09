@@ -635,3 +635,447 @@ async def check_analysis_health():
             "status": "error",
             "error": str(e)
         }
+
+
+@router.post("/save-supervision-state")
+async def save_supervision_state(request: Request):
+    """
+    Save complete supervision session state to database
+
+    Frontend sends:
+    - route_code, date
+    - visited_customers: [{customer_code, visit_sequence, llm_analysis}]
+    - actual_quantities: {customer_code: {item_code: quantity}}
+    - adjustments: {customer_code: {item_code: adjustment_amount}}
+    - route_llm_analysis: string
+
+    Backend fetches full data from tbl_recommended_orders and builds complete payload
+    """
+    try:
+        from backend.core.supervision_storage import get_supervision_storage
+        from datetime import datetime
+
+        data = await request.json()
+
+        route_code = data.get('route_code')
+        date_str = data.get('date')
+        visited_customers = data.get('visited_customers', [])  # [{customer_code, visit_sequence, llm_analysis}]
+        actual_quantities = data.get('actual_quantities', {})  # {customer_code: {item_code: qty}}
+        adjustments = data.get('adjustments', {})  # {customer_code: {item_code: adjustment}}
+        route_llm_analysis = data.get('route_llm_analysis', '')
+
+        if not route_code or not date_str:
+            raise HTTPException(status_code=400, detail="Missing route_code or date")
+
+        if not visited_customers:
+            raise HTTPException(status_code=400, detail="No visited customers to save")
+
+        # Parse date
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d')
+        except:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+        # Get full recommendation data from database
+        rec_storage = get_recommendation_storage()
+        rec_df = rec_storage.get_recommendations(date_str, str(route_code))
+
+        if rec_df.empty:
+            raise HTTPException(status_code=404, detail="No recommendations found for this route and date")
+
+        # Get journey plan to count total planned customers
+        journey_df = data_manager.get_journey_plan()
+        journey_filtered = journey_df[
+            (journey_df['RouteCode'].astype(str) == str(route_code)) &
+            (journey_df['TrxDate'].dt.date == target_date.date())
+        ]
+        total_customers_planned = len(journey_filtered['CustomerCode'].unique()) if not journey_filtered.empty else 0
+
+        # Generate unique session ID with microseconds and random suffix
+        import uuid
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')  # Include microseconds
+        random_suffix = uuid.uuid4().hex[:8]
+        session_id = f"{route_code}_{date_str}_{timestamp}_{random_suffix}"
+
+        # Build customer summaries and item details
+        customer_summaries = []
+        item_details = []
+
+        visited_customer_codes = [vc['customer_code'] for vc in visited_customers]
+        visit_sequence_map = {vc['customer_code']: vc['visit_sequence'] for vc in visited_customers}
+        llm_analysis_map = {vc['customer_code']: vc.get('llm_analysis', '') for vc in visited_customers}
+
+        route_total_skus_recommended = 0
+        route_total_skus_sold = 0
+        route_total_qty_recommended = 0
+        route_total_qty_actual = 0
+        route_redistribution_count = 0
+        route_redistribution_qty = 0
+        customer_scores = []
+
+        # Pre-group DataFrame by customer for efficient lookup (N+1 optimization)
+        customer_groups = rec_df.groupby('CustomerCode')
+
+        # Validation: Check if any visited customers don't exist in recommendations
+        invalid_customers = []
+        for customer_code in visited_customer_codes:
+            if customer_code not in customer_groups.groups:
+                invalid_customers.append(customer_code)
+
+        if invalid_customers:
+            logger.warning(f"Visited customers not found in recommendations: {invalid_customers}")
+            # Continue saving for valid customers only
+            visited_customer_codes = [c for c in visited_customer_codes if c not in invalid_customers]
+
+        for customer_code in visited_customer_codes:
+            customer_data = customer_groups.get_group(customer_code)
+
+            if customer_data.empty:
+                continue
+
+            customer_actuals = actual_quantities.get(customer_code, {})
+            customer_adjustments = adjustments.get(customer_code, {})
+
+            cust_total_skus_recommended = len(customer_data)
+            cust_total_skus_sold = 0
+            cust_total_qty_recommended = 0
+            cust_total_qty_actual = 0
+
+            visit_timestamp = datetime.now()
+
+            # Process each item
+            for _, item_row in customer_data.iterrows():
+                item_code = str(item_row['ItemCode'])
+
+                original_recommended_qty = int(item_row['RecommendedQuantity'])
+                original_actual_qty = int(item_row.get('ActualQuantity', 0))
+
+                # Get adjustment (from redistribution)
+                adjustment = customer_adjustments.get(item_code, 0)
+                adjusted_recommended_qty = original_recommended_qty + adjustment
+
+                # Get final actual quantity (manual edit or original)
+                final_actual_qty = customer_actuals.get(item_code, original_actual_qty)
+                actual_adjustment = final_actual_qty - original_actual_qty
+
+                was_manually_edited = item_code in customer_actuals
+                was_item_sold = final_actual_qty > 0
+
+                if was_item_sold:
+                    cust_total_skus_sold += 1
+
+                cust_total_qty_recommended += adjusted_recommended_qty
+                cust_total_qty_actual += final_actual_qty
+
+                # Track redistribution
+                if adjustment != 0:
+                    route_redistribution_count += 1
+                    route_redistribution_qty += abs(adjustment)
+
+                # Build item detail record
+                item_details.append({
+                    'session_id': session_id,
+                    'customer_code': customer_code,
+                    'item_code': item_code,
+                    'item_name': str(item_row['ItemName']),
+                    'original_recommended_qty': original_recommended_qty,
+                    'adjusted_recommended_qty': adjusted_recommended_qty,
+                    'recommendation_adjustment': adjustment,
+                    'original_actual_qty': original_actual_qty,
+                    'final_actual_qty': final_actual_qty,
+                    'actual_adjustment': actual_adjustment,
+                    'was_manually_edited': was_manually_edited,
+                    'was_item_sold': was_item_sold,
+                    'recommendation_tier': str(item_row.get('Tier', 'Unknown')),
+                    'priority_score': float(item_row.get('PriorityScore', 0)),
+                    'van_inventory_qty': int(item_row.get('VanLoad', 0)),
+                    'days_since_last_purchase': int(item_row.get('DaysSinceLastPurchase', 0)),
+                    'purchase_cycle_days': float(item_row.get('PurchaseCycleDays', 0)),
+                    'purchase_frequency_pct': float(item_row.get('FrequencyPercent', 0)),
+                    'visit_timestamp': visit_timestamp
+                })
+
+            # Calculate customer score
+            cust_sku_coverage_rate = (cust_total_skus_sold / cust_total_skus_recommended * 100) if cust_total_skus_recommended > 0 else 0
+            cust_qty_fulfillment_rate = (cust_total_qty_actual / cust_total_qty_recommended * 100) if cust_total_qty_recommended > 0 else 0
+            cust_performance_score = (cust_sku_coverage_rate * 0.4) + (cust_qty_fulfillment_rate * 0.6)
+
+            customer_scores.append(cust_performance_score)
+            route_total_skus_recommended += cust_total_skus_recommended
+            route_total_skus_sold += cust_total_skus_sold
+            route_total_qty_recommended += cust_total_qty_recommended
+            route_total_qty_actual += cust_total_qty_actual
+
+            # Build customer summary
+            customer_summaries.append({
+                'session_id': session_id,
+                'customer_code': customer_code,
+                'visit_sequence': visit_sequence_map.get(customer_code, 0),
+                'visit_timestamp': visit_timestamp,
+                'total_skus_recommended': cust_total_skus_recommended,
+                'total_skus_sold': cust_total_skus_sold,
+                'sku_coverage_rate': round(cust_sku_coverage_rate, 2),
+                'total_qty_recommended': cust_total_qty_recommended,
+                'total_qty_actual': cust_total_qty_actual,
+                'qty_fulfillment_rate': round(cust_qty_fulfillment_rate, 2),
+                'customer_performance_score': round(cust_performance_score, 2),
+                'llm_performance_analysis': llm_analysis_map.get(customer_code, '')
+            })
+
+        # Calculate route-level metrics
+        total_customers_visited = len(visited_customers)
+        customer_completion_rate = (total_customers_visited / total_customers_planned * 100) if total_customers_planned > 0 else 0
+        sku_coverage_rate = (route_total_skus_sold / route_total_skus_recommended * 100) if route_total_skus_recommended > 0 else 0
+        qty_fulfillment_rate = (route_total_qty_actual / route_total_qty_recommended * 100) if route_total_qty_recommended > 0 else 0
+        route_performance_score = sum(customer_scores) / len(customer_scores) if customer_scores else 0
+
+        # Build route session data
+        session_data = {
+            'session_id': session_id,
+            'route_code': str(route_code),
+            'supervision_date': date_str,
+            'total_customers_planned': total_customers_planned,
+            'total_customers_visited': total_customers_visited,
+            'customer_completion_rate': round(customer_completion_rate, 2),
+            'total_skus_recommended': route_total_skus_recommended,
+            'total_skus_sold': route_total_skus_sold,
+            'sku_coverage_rate': round(sku_coverage_rate, 2),
+            'total_qty_recommended': route_total_qty_recommended,
+            'total_qty_actual': route_total_qty_actual,
+            'qty_fulfillment_rate': round(qty_fulfillment_rate, 2),
+            'redistribution_count': route_redistribution_count,
+            'redistribution_qty': route_redistribution_qty,
+            'route_performance_score': round(route_performance_score, 2),
+            'llm_performance_analysis': route_llm_analysis,
+            'session_status': 'active'
+        }
+
+        # Save to database
+        storage = get_supervision_storage()
+        result = storage.save_supervision_session(
+            session_data=session_data,
+            customer_summaries=customer_summaries,
+            item_details=item_details
+        )
+
+        if result['success']:
+            logger.info(
+                f"Supervision state saved: {result['session_id']} - "
+                f"{result['customers_saved']} customers, {result['items_saved']} items"
+            )
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to save supervision state: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to save supervision state: {str(e)}")
+
+
+@router.post("/load-supervision-state")
+async def load_supervision_state(request: Request):
+    """
+    Load saved supervision session state from database
+    Returns data formatted for frontend consumption (ready to display in read-only mode)
+
+    Frontend sends: { route_code, date }
+    Backend returns: {
+        exists: bool,
+        mode: 'historical' | 'not_found',
+        visited_customers: [customer_code],
+        actual_quantities: {customer_code: {item_code: qty}},
+        adjustments: {customer_code: {item_code: adjustment}},
+        route_analysis: {...},
+        customer_analyses: {customer_code: {...}},
+        session_summary: {...}
+    }
+    """
+    try:
+        from backend.core.supervision_storage import get_supervision_storage
+
+        data = await request.json()
+        route_code = data.get('route_code')
+        date = data.get('date')
+
+        if not route_code or not date:
+            raise HTTPException(status_code=400, detail="Missing route_code or date")
+
+        storage = get_supervision_storage()
+
+        # Check if session exists
+        session_id = storage.check_session_exists(route_code, date)
+
+        if not session_id:
+            return {
+                'exists': False,
+                'mode': 'live',
+                'message': 'No saved session found. Live mode enabled.'
+            }
+
+        # Load the saved session
+        result = storage.load_supervision_session(session_id)
+
+        if not result.get('exists'):
+            return {
+                'exists': False,
+                'mode': 'live',
+                'message': 'Session data not found. Live mode enabled.'
+            }
+
+        # Transform data for frontend consumption
+        route_summary = result['route_summary']
+        customer_summaries = result['customer_summaries']
+        item_details = result['item_details']
+
+        # Build visited customers list (sorted by visit sequence)
+        visited_customers = [
+            c['customer_code'] for c in
+            sorted(customer_summaries, key=lambda x: x['visit_sequence'])
+        ]
+
+        # Build actual quantities map: {customer_code: {item_code: final_actual_qty}}
+        actual_quantities = {}
+        for item in item_details:
+            customer_code = item['customer_code']
+            item_code = item['item_code']
+            final_qty = item['final_actual_qty']
+
+            if customer_code not in actual_quantities:
+                actual_quantities[customer_code] = {}
+            actual_quantities[customer_code][item_code] = final_qty
+
+        # Build adjustments map: {customer_code: {item_code: recommendation_adjustment}}
+        adjustments = {}
+        for item in item_details:
+            customer_code = item['customer_code']
+            item_code = item['item_code']
+            adjustment = item['recommendation_adjustment']
+
+            if adjustment != 0:  # Only include non-zero adjustments
+                if customer_code not in adjustments:
+                    adjustments[customer_code] = {}
+                adjustments[customer_code][item_code] = adjustment
+
+        # Build customer analyses map: {customer_code: llm_analysis_text}
+        customer_analyses = {
+            c['customer_code']: c['llm_performance_analysis']
+            for c in customer_summaries
+            if c.get('llm_performance_analysis')
+        }
+
+        # Build visit sequence map: {customer_code: sequence_number}
+        visit_sequences = {
+            c['customer_code']: c['visit_sequence']
+            for c in customer_summaries
+        }
+
+        logger.info(f"Loaded saved supervision session: {session_id} ({len(visited_customers)} customers)")
+
+        return {
+            'exists': True,
+            'mode': 'historical',
+            'session_id': session_id,
+            'visited_customers': visited_customers,
+            'actual_quantities': actual_quantities,
+            'adjustments': adjustments,
+            'visit_sequences': visit_sequences,
+            'route_analysis': route_summary.get('llm_performance_analysis', ''),
+            'customer_analyses': customer_analyses,
+            'session_summary': {
+                'route_code': route_summary['route_code'],
+                'date': route_summary['supervision_date'],
+                'total_customers_planned': route_summary['total_customers_planned'],
+                'total_customers_visited': route_summary['total_customers_visited'],
+                'customer_completion_rate': route_summary['customer_completion_rate'],
+                'total_skus_recommended': route_summary['total_skus_recommended'],
+                'total_skus_sold': route_summary['total_skus_sold'],
+                'sku_coverage_rate': route_summary['sku_coverage_rate'],
+                'total_qty_recommended': route_summary['total_qty_recommended'],
+                'total_qty_actual': route_summary['total_qty_actual'],
+                'qty_fulfillment_rate': route_summary['qty_fulfillment_rate'],
+                'redistribution_count': route_summary['redistribution_count'],
+                'redistribution_qty': route_summary['redistribution_qty'],
+                'route_performance_score': route_summary['route_performance_score'],
+                'session_status': route_summary['session_status']
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to load supervision state: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to load supervision state: {str(e)}")
+
+
+@router.get("/check-supervision-exists")
+async def check_supervision_exists(route_code: str, date: str):
+    """
+    Check if supervision session exists for given route and date
+
+    Returns:
+    - session_id if exists
+    - None if not found
+    """
+    try:
+        from backend.core.supervision_storage import get_supervision_storage
+
+        storage = get_supervision_storage()
+        session_id = storage.check_session_exists(route_code, date)
+
+        return {
+            'exists': session_id is not None,
+            'session_id': session_id
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to check supervision existence: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to check supervision: {str(e)}")
+
+
+@router.get("/llm-cache-stats")
+async def get_llm_cache_stats():
+    """
+    Get LLM cache and rate limiter statistics
+
+    Returns performance metrics including:
+    - Cache hit/miss rates
+    - Cost savings from caching
+    - Rate limiter status
+    - Total cached responses
+    """
+    try:
+        from backend.core.llm_cache import get_llm_cache, get_rate_limiter
+
+        cache = get_llm_cache()
+        rate_limiter = get_rate_limiter()
+
+        # Get statistics
+        cache_stats = cache.get_stats()
+        rate_limit_stats = rate_limiter.get_stats()
+
+        # Calculate additional metrics
+        total_requests = cache_stats['total_requests']
+        if total_requests > 0:
+            avg_cost_saved_per_request = cache_stats['total_cost_saved_usd'] / total_requests
+        else:
+            avg_cost_saved_per_request = 0
+
+        return {
+            'cache': {
+                **cache_stats,
+                'avg_cost_saved_per_request_usd': round(avg_cost_saved_per_request, 6)
+            },
+            'rate_limiter': rate_limit_stats,
+            'status': 'healthy',
+            'message': 'LLM cache and rate limiter operational'
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get LLM cache stats: {e}")
+        return {
+            'cache': None,
+            'rate_limiter': None,
+            'status': 'error',
+            'message': str(e)
+        }

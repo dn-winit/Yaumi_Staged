@@ -1,6 +1,7 @@
 import os
 import yaml
 import json
+import hashlib
 import pandas as pd
 from typing import Dict, Any, List
 from groq import Groq
@@ -8,31 +9,42 @@ import logging
 from pathlib import Path
 from pydantic import ValidationError
 from backend.models.data_models import CustomerAnalysisResponse, RouteAnalysisResponse
+from backend.core.llm_cache import get_llm_cache, get_rate_limiter
 
 logger = logging.getLogger(__name__)
 
 class AnalysisEngine:
-    """Advanced analysis service for sales supervision"""
+    """Advanced analysis service for sales supervision with caching and rate limiting"""
 
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str = None, timeout: int = 45):
         # Use provided API key or get from environment
         self.api_key = api_key or os.getenv('GROQ_API_KEY')
+        self.timeout = timeout
         self.client = None
         self.is_available = False
 
         if self.api_key:
             try:
-                self.client = Groq(api_key=self.api_key)
+                self.client = Groq(
+                    api_key=self.api_key,
+                    timeout=self.timeout  # Set explicit timeout
+                )
                 self.is_available = True
+                logger.info(f"Groq client initialized with {self.timeout}s timeout")
             except Exception as e:
                 logger.warning(f"Failed to initialize analytics client: {e}")
         else:
             logger.info("GROQ_API_KEY not set. Advanced analysis features will be disabled.")
+
         self.prompts_dir = Path(__file__).parent.parent / 'prompts'
 
         # Load prompt templates
         self.customer_prompt = self._load_prompt_template('customer_analysis.yaml')
         self.route_prompt = self._load_prompt_template('route_analysis.yaml')
+
+        # Initialize cache and rate limiter
+        self.cache = get_llm_cache()
+        self.rate_limiter = get_rate_limiter()
 
     def _load_prompt_template(self, filename: str) -> Dict[str, str]:
         """Load prompt template from YAML file"""
@@ -114,7 +126,7 @@ class AnalysisEngine:
         coverage: float = 0.0,
         accuracy: float = 0.0
     ) -> Dict[str, Any]:
-        """Generate advanced analysis for customer performance - returns structured JSON"""
+        """Generate advanced analysis for customer performance - returns structured JSON with caching"""
         if not self.is_available:
             return {
                 "customer_code": customer_code,
@@ -123,6 +135,42 @@ class AnalysisEngine:
                 "weaknesses": [],
                 "likely_reasons": [],
                 "immediate_actions": [],
+                "follow_up_actions": [],
+                "identified_patterns": [],
+                "red_flags": []
+            }
+
+        # Generate cache key from parameters
+        cache_params = {
+            'customer_code': customer_code,
+            'route_code': route_code,
+            'date': date,
+            'performance_score': round(performance_score, 1),
+            'coverage': round(coverage, 1),
+            'accuracy': round(accuracy, 1),
+            'items_hash': hashlib.sha256(
+                json.dumps([
+                    (item['itemCode'], item['actualQuantity'], item['recommendedQuantity'])
+                    for item in current_items
+                ], sort_keys=True).encode()
+            ).hexdigest()[:8]
+        }
+
+        # Check cache first
+        cached_response = self.cache.get('customer_analysis', **cache_params)
+        if cached_response is not None:
+            return cached_response
+
+        # Cache miss - acquire rate limit token
+        if not self.rate_limiter.acquire(blocking=True, timeout=10):
+            logger.error("Rate limit exceeded for customer analysis")
+            return {
+                "customer_code": customer_code,
+                "performance_summary": "Rate limit exceeded. Too many analysis requests. Please wait a moment.",
+                "strengths": [],
+                "weaknesses": [],
+                "likely_reasons": [],
+                "immediate_actions": ["Wait before requesting more analyses"],
                 "follow_up_actions": [],
                 "identified_patterns": [],
                 "red_flags": []
@@ -205,7 +253,18 @@ class AnalysisEngine:
             # Validate with Pydantic to ensure structure and prevent hallucinations
             try:
                 validated_response = CustomerAnalysisResponse(**analysis_json)
-                return validated_response.model_dump()
+                response_dict = validated_response.model_dump()
+
+                # Cache successful response (estimated cost: $0.001 per customer analysis)
+                self.cache.set(
+                    'customer_analysis',
+                    response_dict,
+                    ttl_hours=24,
+                    estimated_cost=0.001,
+                    **cache_params
+                )
+
+                return response_dict
             except ValidationError as e:
                 logger.error(f"Pydantic validation failed for customer analysis: {e}")
                 logger.error(f"Analysis JSON that failed validation: {json.dumps(analysis_json, indent=2)}")
@@ -222,6 +281,16 @@ class AnalysisEngine:
                     "identified_patterns": analysis_json.get("identified_patterns", []) if isinstance(analysis_json.get("identified_patterns"), list) else [],
                     "red_flags": analysis_json.get("red_flags", []) if isinstance(analysis_json.get("red_flags"), list) else []
                 }
+
+                # Cache safe response too (avoid repeated failures)
+                self.cache.set(
+                    'customer_analysis',
+                    safe_response,
+                    ttl_hours=24,
+                    estimated_cost=0.001,
+                    **cache_params
+                )
+
                 return safe_response
 
         except json.JSONDecodeError as e:
@@ -318,7 +387,7 @@ class AnalysisEngine:
         visited_customers: List[Dict[str, Any]],  # Actual visited customer data
         coverage_metrics: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Generate advanced analysis for route performance - returns structured JSON"""
+        """Generate advanced analysis for route performance - returns structured JSON with caching"""
         if not self.is_available:
             return {
                 "route_code": route_code,
@@ -331,6 +400,44 @@ class AnalysisEngine:
                 "overstocked_items": [],
                 "understocked_items": [],
                 "coaching_areas": [],
+                "best_practices": []
+            }
+
+        # Generate cache key from parameters
+        total_actual = sum(c.get('totalActualQty', 0) for c in visited_customers)
+        total_recommended = sum(c.get('totalRecommendedQty', 0) for c in visited_customers)
+
+        cache_params = {
+            'route_code': route_code,
+            'date': date,
+            'visited_customers': len(visited_customers),
+            'total_actual': total_actual,
+            'total_recommended': total_recommended,
+            'coverage_pct': round(coverage_metrics.get('coveragePercentage', 0), 1),
+            'customers_hash': hashlib.sha256(
+                json.dumps([c.get('customerCode') for c in visited_customers], sort_keys=True).encode()
+            ).hexdigest()[:8]
+        }
+
+        # Check cache first
+        cached_response = self.cache.get('route_analysis', **cache_params)
+        if cached_response is not None:
+            return cached_response
+
+        # Cache miss - acquire rate limit token
+        if not self.rate_limiter.acquire(blocking=True, timeout=10):
+            logger.error("Rate limit exceeded for route analysis")
+            return {
+                "route_code": route_code,
+                "route_summary": "Rate limit exceeded. Too many analysis requests. Please wait a moment.",
+                "high_performers": [],
+                "needs_attention": [],
+                "route_strengths": [],
+                "route_weaknesses": [],
+                "optimization_opportunities": [],
+                "overstocked_items": [],
+                "understocked_items": [],
+                "coaching_areas": ["Limit analysis requests to avoid overloading the system"],
                 "best_practices": []
             }
 
@@ -415,7 +522,18 @@ class AnalysisEngine:
             # Validate with Pydantic to ensure structure and prevent hallucinations
             try:
                 validated_response = RouteAnalysisResponse(**analysis_json)
-                return validated_response.model_dump()
+                response_dict = validated_response.model_dump()
+
+                # Cache successful response (estimated cost: $0.002 per route analysis - larger context)
+                self.cache.set(
+                    'route_analysis',
+                    response_dict,
+                    ttl_hours=24,
+                    estimated_cost=0.002,
+                    **cache_params
+                )
+
+                return response_dict
             except ValidationError as e:
                 logger.error(f"Pydantic validation failed for route analysis: {e}")
                 logger.error(f"Analysis JSON that failed validation: {json.dumps(analysis_json, indent=2)}")
@@ -434,6 +552,16 @@ class AnalysisEngine:
                     "coaching_areas": analysis_json.get("coaching_areas", []) if isinstance(analysis_json.get("coaching_areas"), list) else [],
                     "best_practices": analysis_json.get("best_practices", []) if isinstance(analysis_json.get("best_practices"), list) else []
                 }
+
+                # Cache safe response too
+                self.cache.set(
+                    'route_analysis',
+                    safe_response,
+                    ttl_hours=24,
+                    estimated_cost=0.002,
+                    **cache_params
+                )
+
                 return safe_response
 
         except json.JSONDecodeError as e:

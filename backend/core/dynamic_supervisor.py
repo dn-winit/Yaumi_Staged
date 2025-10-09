@@ -150,7 +150,11 @@ class DynamicSupervisionSession:
         Redistribute unsold items to remaining customers based on priority
         """
         if not unsold_items:
-            return {'redistributed_count': 0, 'details': []}
+            return {
+                'redistributed_count': 0,
+                'details': [],
+                'status': 'nothing_to_redistribute'
+            }
 
         redistribution_details = []
 
@@ -161,7 +165,12 @@ class DynamicSupervisionSession:
         ]
 
         if not unvisited_customers:
-            return {'redistributed_count': 0, 'details': [], 'message': 'No remaining customers'}
+            return {
+                'redistributed_count': 0,
+                'details': [],
+                'status': 'no_remaining_customers',
+                'message': 'No remaining customers to redistribute items to'
+            }
 
         # Process each unsold item
         for item_code, item_info in unsold_items.items():
@@ -223,9 +232,19 @@ class DynamicSupervisionSession:
 
                 remaining_qty -= redistribute_qty
 
+        # Check if any items couldn't be redistributed
+        items_not_redistributed = []
+        for item_code, item_info in unsold_items.items():
+            if not any(d['item_code'] == item_code for d in redistribution_details):
+                items_not_redistributed.append(item_code)
+
         return {
             'redistributed_count': len(redistribution_details),
-            'details': redistribution_details
+            'details': redistribution_details,
+            'status': 'success' if not items_not_redistributed else 'partial',
+            'items_not_redistributed': items_not_redistributed,
+            'message': f'Redistributed {len(redistribution_details)} items successfully' +
+                      (f', {len(items_not_redistributed)} items could not be redistributed' if items_not_redistributed else '')
         }
 
     def get_session_summary(self) -> Dict[str, Any]:

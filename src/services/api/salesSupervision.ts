@@ -206,6 +206,38 @@ export const salesSupervisionAPI = {
   checkLLMHealth: async () => {
     return await apiClient.get('/sales-supervision/llm-health');
   },
+
+  // Save supervision session state to database
+  saveSupervisionState: async (payload: {
+    route_code: string;
+    date: string;
+    visited_customers: Array<{
+      customer_code: string;
+      visit_sequence: number;
+      llm_analysis?: string;
+    }>;
+    actual_quantities: Record<string, Record<string, number>>;
+    adjustments: Record<string, Record<string, number>>;
+    route_llm_analysis?: string;
+  }) => {
+    return await apiClient.post('/sales-supervision/save-supervision-state', payload);
+  },
+
+  // Load supervision session from database
+  loadSupervisionState: async (routeCode: string, date: string) => {
+    return await apiClient.post('/sales-supervision/load-supervision-state', {
+      route_code: routeCode,
+      date: date
+    });
+  },
+
+  // Check if supervision session exists for route and date
+  checkSupervisionExists: async (routeCode: string, date: string) => {
+    return await apiClient.post('/sales-supervision/check-supervision-exists', {
+      route_code: routeCode,
+      date: date
+    });
+  },
 };
 
 // Maintain backward compatibility
