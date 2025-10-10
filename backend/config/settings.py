@@ -83,6 +83,7 @@ QUANTITY_PARAMS = {
 # New customer parameters
 NEW_CUSTOMER_PARAMS = {
     'TIER': 'NEW_CUSTOMER',
+    'PRIORITY_SCORE': 25.0,  # Priority score for new customers
     'PROBABILITY_PERCENT': 25.0,
     'URGENCY_SCORE': 25.0,
     'AVG_QUANTITY': 5,

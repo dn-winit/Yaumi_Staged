@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, Package, Users, TrendingUp, ShoppingCart, CheckCircle, AlertTriangle, ChevronDown, ChevronRight, Brain, Filter, Search, RotateCcw } from 'lucide-react';
-import { PageHeader, LoadingState, EmptyState, SectionHeader, Message } from '../common';
+import { PageHeader, LoadingState, EmptyState, SectionHeader, Toast } from '../common';
 import MultiSelect from '../common/MultiSelect';
 import {
   getSalesSupervisionFilterOptions,
@@ -134,7 +134,7 @@ const SalesSupervision: React.FC = () => {
   const [salesData, setSalesData] = useState<SalesData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{message: string; type: 'success' | 'error' | 'warning' | 'info'} | null>(null);
   const [generatingRecommendations, setGeneratingRecommendations] = useState(false);
   const [expandedCustomers, setExpandedCustomers] = useState<Set<number>>(new Set());
   const [visitedCustomers, setVisitedCustomers] = useState<Set<string>>(new Set());
@@ -147,7 +147,6 @@ const SalesSupervision: React.FC = () => {
   const [isHistoricalMode, setIsHistoricalMode] = useState(false);
   const [savedSessionId, setSavedSessionId] = useState<string | null>(null);
   const [adjustments, setAdjustments] = useState<{ [key: string]: { [key: string]: number } }>({});
-  const [redistributionMessage, setRedistributionMessage] = useState<string | null>(null);
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [showActualModal, setShowActualModal] = useState(false);
   const [showRecommendedModal, setShowRecommendedModal] = useState(false);
@@ -234,7 +233,7 @@ const SalesSupervision: React.FC = () => {
     setLoading(true);
     setError(null);
     if (!generatingRecommendations) {
-      setSuccessMessage(null);
+      setToast(null);
     }
 
     // Reset all state
@@ -334,7 +333,7 @@ const SalesSupervision: React.FC = () => {
           setCustomerAnalyses(parsedAnalyses);
         }
 
-        setSuccessMessage(`📋 Loaded saved session from ${selectedDate} (Read-Only Mode)`);
+        setToast({ message: `📋 Loaded saved session from ${selectedDate} (Read-Only Mode)`, type: 'info' });
 
       } else {
         // LIVE MODE - Enable real-time supervision
@@ -354,7 +353,7 @@ const SalesSupervision: React.FC = () => {
               ? 'Session initialization timed out. Real-time redistribution unavailable.'
               : 'Warning: Real-time redistribution unavailable. You can still supervise manually.';
             setError(errorMsg);
-            setTimeout(() => setError(null), 5000); // Clear after 5 seconds
+            setToast({ message: errorMsg, type: 'warning' });
           }
         }
       }
@@ -372,7 +371,7 @@ const SalesSupervision: React.FC = () => {
 
     setGeneratingRecommendations(true);
     setError(null);
-    setSuccessMessage(null);
+    setToast(null);
 
     try {
       // Use unified endpoint - fetches from DB or auto-generates if missing
@@ -386,9 +385,9 @@ const SalesSupervision: React.FC = () => {
 
       // Show success message based on data source
       if (result.status === 'generated') {
-        setSuccessMessage(`Successfully generated ${result.chart_data?.length || 0} recommendations for ${selectedDate}`);
+        setToast({ message: `Successfully generated ${result.chart_data?.length || 0} recommendations for ${selectedDate}`, type: 'success' });
       } else {
-        setSuccessMessage(`Loaded ${result.chart_data?.length || 0} recommendations from database for ${selectedDate}`);
+        setToast({ message: `Loaded ${result.chart_data?.length || 0} recommendations from database for ${selectedDate}`, type: 'success' });
       }
 
       // Reload sales supervision data to show the new recommendations
@@ -504,8 +503,7 @@ const SalesSupervision: React.FC = () => {
 
               // Show redistribution message
               if (visitResult.redistribution && visitResult.redistribution.redistributed_count > 0) {
-                setRedistributionMessage(`Redistributed ${visitResult.redistribution.redistributed_count} items to remaining customers`);
-                setTimeout(() => setRedistributionMessage(null), 5000);
+                setToast({ message: `Redistributed ${visitResult.redistribution.redistributed_count} items to remaining customers`, type: 'success' });
               }
             }
           }
@@ -854,7 +852,7 @@ const SalesSupervision: React.FC = () => {
 
     setSaving(true);
     setError(null);
-    setSuccessMessage(null);
+    setToast(null);
 
     try {
       // Build visited customers array with visit sequence and customer analyses
@@ -884,8 +882,7 @@ const SalesSupervision: React.FC = () => {
       const result = await salesSupervisionAPI.saveSupervisionState(payload);
 
       if (result.success) {
-        setSuccessMessage(`Session saved successfully! ${result.customers_saved} customers and ${result.items_saved} items saved.`);
-        setTimeout(() => setSuccessMessage(null), 5000);
+        setToast({ message: `Session saved successfully! ${result.customers_saved} customers and ${result.items_saved} items saved.`, type: 'success' });
       } else {
         setError(result.message || 'Failed to save supervision state');
       }
@@ -988,7 +985,7 @@ const SalesSupervision: React.FC = () => {
                 setSelectedDate('');
                 setSalesData(null);
                 setError(null);
-                setSuccessMessage(null);
+                setToast(null);
               }}
               className="ui-button-neutral text-xs"
             >
@@ -1005,12 +1002,6 @@ const SalesSupervision: React.FC = () => {
             </button>
           </div>
         </div>
-
-        {redistributionMessage && (
-          <Message type="info" icon={<TrendingUp />}>
-            {redistributionMessage}
-          </Message>
-        )}
 
         {loading && (
           <LoadingState
@@ -1421,15 +1412,6 @@ const SalesSupervision: React.FC = () => {
                     </div>
                   )}
                 </div>
-
-                {/* Success Message - Below Save Button */}
-                {successMessage && !loading && !isHistoricalMode && (
-                  <div className="mt-4 flex justify-center">
-                    <Message type="success" icon={<CheckCircle />}>
-                      {successMessage}
-                    </Message>
-                  </div>
-                )}
               </>
             )}
           </div>
@@ -2230,6 +2212,15 @@ const SalesSupervision: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+            duration={5000}
+          />
         )}
 
       </div>

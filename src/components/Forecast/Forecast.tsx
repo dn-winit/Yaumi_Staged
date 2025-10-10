@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PageHeader, LoadingState, EmptyState } from '../common';
+import { PageHeader, LoadingState, EmptyState, Toast } from '../common';
 import ForecastChart from './ForecastChart';
 import ForecastTable from './ForecastTable';
 import ForecastFilters from './ForecastFilters';
@@ -10,6 +10,7 @@ const Forecast: React.FC = () => {
   const [forecastData, setForecastData] = useState<ForecastDataPoint[]>([]);
   const [currentFilters, setCurrentFilters] = useState<ForecastFiltersType | null>(null);
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<{message: string; type: 'success' | 'error' | 'warning' | 'info'} | null>(null);
 
   const handleFiltersSubmit = async (filters: ForecastFiltersType) => {
     setLoading(true);
@@ -19,7 +20,7 @@ const Forecast: React.FC = () => {
       setCurrentFilters(filters);
     } catch (error) {
       console.error('Error fetching forecast data:', error);
-      alert('Failed to fetch forecast data');
+      setToast({ message: 'Failed to fetch forecast data', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -64,6 +65,15 @@ const Forecast: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             }
+          />
+        )}
+
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+            duration={5000}
           />
         )}
       </div>

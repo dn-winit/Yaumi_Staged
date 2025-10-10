@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PageHeader, LoadingState, EmptyState } from '../common';
+import { PageHeader, LoadingState, EmptyState, Toast } from '../common';
 import RecommendedOrderChart from './RecommendedOrderChart';
 import RecommendedOrderTable from './RecommendedOrderTable';
 import RecommendedOrderFiltersComponent from './RecommendedOrderFilters';
@@ -10,11 +10,10 @@ const RecommendedOrder: React.FC = () => {
   const [currentFilters, setCurrentFilters] = useState<RecommendedOrderFilters | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [refreshMessage, setRefreshMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [toast, setToast] = useState<{message: string; type: 'success' | 'error' | 'warning' | 'info'} | null>(null);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    setRefreshMessage(null);
 
     try {
       const response = await fetch('/api/v1/refresh-data', {
@@ -25,22 +24,12 @@ const RecommendedOrder: React.FC = () => {
       const result = await response.json();
 
       if (result.success) {
-        setRefreshMessage({
-          type: 'success',
-          text: 'Data refreshed successfully!'
-        });
-        setTimeout(() => setRefreshMessage(null), 5000);
+        setToast({ message: 'Data refreshed successfully!', type: 'success' });
       } else {
-        setRefreshMessage({
-          type: 'error',
-          text: result.message || 'Failed to refresh data'
-        });
+        setToast({ message: result.message || 'Failed to refresh data', type: 'error' });
       }
     } catch (error) {
-      setRefreshMessage({
-        type: 'error',
-        text: 'Error connecting to server'
-      });
+      setToast({ message: 'Error connecting to server', type: 'error' });
     } finally {
       setRefreshing(false);
     }
@@ -59,7 +48,7 @@ const RecommendedOrder: React.FC = () => {
       setCurrentFilters(filtersWithData);
     } catch (error) {
       console.error('Error processing recommended order data:', error);
-      alert('Failed to process recommended order data');
+      setToast({ message: 'Failed to process recommended order data', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -80,27 +69,6 @@ const RecommendedOrder: React.FC = () => {
           onRefresh={handleRefresh}
           refreshing={refreshing}
         />
-
-        {refreshMessage && (
-          <div className={`mb-4 p-4 rounded-md ${
-            refreshMessage.type === 'success'
-              ? 'bg-green-50 border border-green-200 text-green-800'
-              : 'bg-red-50 border border-red-200 text-red-800'
-          }`}>
-            <div className="flex items-center">
-              {refreshMessage.type === 'success' ? (
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              )}
-              <span className="text-sm font-medium">{refreshMessage.text}</span>
-            </div>
-          </div>
-        )}
 
         <RecommendedOrderFiltersComponent onFiltersSubmit={handleFiltersSubmit} />
 
@@ -128,6 +96,15 @@ const RecommendedOrder: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
             }
+          />
+        )}
+
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+            duration={5000}
           />
         )}
       </div>

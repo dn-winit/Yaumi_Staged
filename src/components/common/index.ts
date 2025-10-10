@@ -7,3 +7,4 @@ export { default as EmptyState } from './EmptyState';
 export { default as Message } from './Message';
 export { default as PageHeader } from './PageHeader';
 export { default as SectionHeader } from './SectionHeader';
+export { default as Toast } from './Toast';

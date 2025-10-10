@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PageHeader, LoadingState, EmptyState } from '../common';
+import { PageHeader, LoadingState, EmptyState, Toast } from '../common';
 import DashboardChart from './DashboardChart';
 import DashboardTable from './DashboardTable';
 import DashboardFilters from './DashboardFilters';
@@ -17,6 +17,7 @@ const Dashboard: React.FC = () => {
   const [selectedPredictedQuantity, setSelectedPredictedQuantity] = useState<number | undefined>();
   const [selectedActualQuantity, setSelectedActualQuantity] = useState<number | undefined>();
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<{message: string; type: 'success' | 'error' | 'warning' | 'info'} | null>(null);
 
   const handleFiltersSubmit = async (filters: DashboardFiltersType) => {
     setLoading(true);
@@ -26,7 +27,7 @@ const Dashboard: React.FC = () => {
       setCurrentFilters(filters);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      alert('Failed to fetch dashboard data');
+      setToast({ message: 'Failed to fetch dashboard data', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -67,7 +68,7 @@ const Dashboard: React.FC = () => {
       setShowPopup(true);
     } catch (error) {
       console.error('Error fetching historical averages:', error);
-      alert('Failed to fetch historical data');
+      setToast({ message: 'Failed to fetch historical data', type: 'error' });
     }
   };
 
@@ -118,6 +119,15 @@ const Dashboard: React.FC = () => {
           predictedQuantity={selectedPredictedQuantity}
           actualQuantity={selectedActualQuantity}
         />
+
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+            duration={5000}
+          />
+        )}
       </div>
     </div>
   );
