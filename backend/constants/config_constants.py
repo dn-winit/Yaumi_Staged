@@ -10,8 +10,8 @@ DATABASE_RETRY_DELAY = 2
 # API
 DEFAULT_API_PREFIX = '/api/v1'
 API_VERSION = '2.0.0'
-API_TITLE = 'Yaumi Analytics API'
-API_DESCRIPTION = 'Professional Analytics Platform for Yaumi - Demand, Forecast, Recommendations & Supervision'
+API_TITLE = 'WINIT Analytics API'
+API_DESCRIPTION = 'Professional Analytics Platform - Demand, Forecast, Recommendations & Supervision'
 
 # Cache
 DEFAULT_CACHE_TTL = 3600  # 1 hour
@@ -57,7 +57,7 @@ MAX_REQUEST_SIZE_MB = 10
 
 # Security
 SESSION_MAX_AGE = 3600  # 1 hour
-ALLOWED_HOSTS_PRODUCTION = ["*.onrender.com", "*.vercel.app", "yaumi.com", "*.yaumi.com"]
+ALLOWED_HOSTS_PRODUCTION = ["*.onrender.com", "*.vercel.app"]
 
 # File naming
 FILE_DATE_FORMAT = '%Y%m%d'

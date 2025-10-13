@@ -1,6 +1,6 @@
-# 🎯 Yaumi Analytics Platform
+# 🎯 WINIT Analytics Platform
 
-**Professional Sales Intelligence & Forecasting System for WINIT**
+**Professional Sales Intelligence & Forecasting System**
 
 Version 2.0.0 | Production Ready
 

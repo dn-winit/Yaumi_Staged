@@ -6,7 +6,7 @@
 2. Click **"New repository"** (green button)
 3. Repository settings:
    - **Name**: `Yaumi_Live`
-   - **Description**: `Production-ready Yaumi Analytics Platform - FMCG Sales Analytics & Supervision`
+   - **Description**: `Production-ready WINIT Analytics Platform - FMCG Sales Analytics & Supervision`
    - **Visibility**: **Private** (recommended for production code)
    - **DO NOT** initialize with README (we already have one)
    - **DO NOT** add .gitignore (we already have one)

@@ -1,4 +1,4 @@
-# Yaumi Analytics Platform - Project Structure
+# WINIT Analytics Platform - Project Structure
 
 ## Directory Organization
 

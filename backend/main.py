@@ -221,7 +221,7 @@ app.add_middleware(
 if ENVIRONMENT == 'production':
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["*.onrender.com", "*.vercel.app", "yaumi.com", "*.yaumi.com"]
+        allowed_hosts=["*.onrender.com", "*.vercel.app"]
     )
 
 # 8. CORS Middleware (innermost)

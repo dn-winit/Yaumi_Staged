@@ -63,7 +63,7 @@ class LoggerAdapter(logging.LoggerAdapter):
 def setup_logging(
     log_level: str = 'INFO',
     log_dir: Optional[Path] = None,
-    app_name: str = 'yaumi_analytics',
+    app_name: str = 'winit_analytics',
     json_logs: bool = False,
     console_output: bool = True
 ) -> None:

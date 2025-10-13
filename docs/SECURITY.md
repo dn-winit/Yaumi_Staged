@@ -1,6 +1,6 @@
 # = Security Guidelines
 
-##   IMPORTANT: Before Deploying to Production
+## ï¿½ IMPORTANT: Before Deploying to Production
 
 ### 1. **NEVER Commit Secrets to Git**
 - L Database credentials
@@ -58,12 +58,12 @@ print(secrets.token_urlsafe(32))
 
 ### 5. **Database Security**
 
-  **Critical**: Your SQL Server credentials were exposed in the code!
+ï¿½ **Critical**: Your SQL Server credentials were exposed in the code!
 
 **Immediate Actions:**
 1.  **DONE**: Removed hardcoded credentials from `backend/config/settings.py`
-2.   **TODO**: Change database password immediately
-3.   **TODO**: Review database access logs for unauthorized access
+2. ï¿½ **TODO**: Change database password immediately
+3. ï¿½ **TODO**: Review database access logs for unauthorized access
 4.  **DONE**: Update code to use environment variables
 
 **Best Practices:**
@@ -99,7 +99,7 @@ async def get_summary():
 **Vercel Environment Variables:**
 ```bash
 # Set in Vercel Dashboard > Settings > Environment Variables
-VITE_API_URL=https://yaumi-backend.onrender.com/api/v1
+VITE_API_URL=https://salesvision-app.onrender.com/api/v1
 ```
 
 **Security Headers** (already configured in `vercel.json`):
@@ -157,10 +157,10 @@ If credentials are compromised:
 
 ---
 
-## =Þ Security Contact
+## =ï¿½ Security Contact
 
 For security concerns or to report vulnerabilities:
-- Email: security@yaumi.com (update with actual contact)
+- Email: security@winit.com (update with actual contact)
 - Escalate to: IT Security Team
 
 **Remember: Security is everyone's responsibility!** =

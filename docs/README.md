@@ -1,4 +1,4 @@
-# 📚 Yaumi Analytics Platform - Documentation
+# 📚 WINIT Analytics Platform - Documentation
 
 **Professional Analytics Platform for Sales Intelligence and Forecasting**
 

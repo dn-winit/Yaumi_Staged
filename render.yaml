@@ -1,4 +1,4 @@
-# ==========================================
+region# ==========================================
 # RENDER.COM DEPLOYMENT CONFIGURATION
 # ==========================================
 # Backend API Service Configuration
@@ -6,10 +6,10 @@
 
 services:
   - type: web
-    name: yaumi-backend
+    name: salesvision-backend
     runtime: docker
-    region: singapore  # Asia Pacific region for optimal performance
-    plan: free
+    region: ohio  # US region for optimal performance
+    plan: starter
     branch: main
 
     # Environment Variables (Set in Render Dashboard)
@@ -42,7 +42,7 @@ services:
 
       # CORS - Update with your Vercel frontend URL
       - key: CORS_ORIGINS
-        value: "https://*.vercel.app,https://yaumi-frontend.vercel.app"
+        value: "https://*.vercel.app,https://salesvision-app.vercel.app"
 
       - key: LOG_LEVEL
         value: "INFO"
