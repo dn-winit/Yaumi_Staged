@@ -29,7 +29,7 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
 
   const [availableOptions, setAvailableOptions] = useState<{
     routes: { code: string; name: string; }[];
-    customers: { code: string; name: string; }[];
+    customers: { code: string; name: string; hasActualSales?: boolean; }[];
     items: { code: string; name: string; }[];
   }>({ routes: [], customers: [], items: [] });
 
@@ -262,7 +262,7 @@ const RecommendedOrderFiltersComponent: React.FC<RecommendedOrderFiltersProps> =
                   { value: 'All', label: 'All Customers' },
                   ...availableOptions.customers.map(customer => ({
                     value: customer.code,
-                    label: customer.name
+                    label: customer.hasActualSales ? `${customer.name} ✅` : customer.name
                   }))
                 ]}
                 placeholder="Select Customer"

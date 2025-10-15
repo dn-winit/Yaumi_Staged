@@ -452,7 +452,41 @@ async def get_recommended_order_filter_options(
 
             # Customers strictly from recs; require route filter to avoid over-broad lists
             if route_code and route_code != 'All':
-                customers = [{"code": cc, "name": cc} for cc in sorted(rec_df['CustomerCode'].astype(str).unique())]
+                # Get unique customers
+                customer_codes = sorted(rec_df['CustomerCode'].astype(str).unique())
+
+                # Check which customers have actual sales data for this date
+                customers_with_sales = set()
+                try:
+                    customer_df = data_manager.get_customer_data()
+                    if not customer_df.empty and normalized_date:
+                        # Standardize codes
+                        for col in ['CustomerCode', 'RouteCode']:
+                            if col in customer_df.columns:
+                                customer_df[col] = customer_df[col].astype(str).str.strip()
+
+                        # Filter for target date and route
+                        target_dt = pd.to_datetime(normalized_date)
+                        target_sales = customer_df[customer_df['TrxDate'] == target_dt]
+                        if route_code and route_code != 'All':
+                            target_sales = target_sales[target_sales['RouteCode'] == str(route_code)]
+
+                        # Get customers with sales (TotalQuantity > 0)
+                        customers_with_sales = set(
+                            target_sales[target_sales['TotalQuantity'] > 0]['CustomerCode'].unique()
+                        )
+                except Exception:
+                    pass
+
+                # Build customer list with hasActualSales flag
+                customers = [
+                    {
+                        "code": cc,
+                        "name": cc,
+                        "hasActualSales": cc in customers_with_sales
+                    }
+                    for cc in customer_codes
+                ]
             else:
                 customers = []
 

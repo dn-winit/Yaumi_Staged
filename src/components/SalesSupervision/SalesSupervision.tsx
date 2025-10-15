@@ -1027,7 +1027,15 @@ const SalesSupervision: React.FC = () => {
                   {salesData.recommendedOrderSection.customers.map((customer, customerIndex) => {
                     const isExpanded = expandedCustomers.has(customerIndex);
                     const isVisited = visitedCustomers.has(customer.customerCode);
-                    
+
+                    // Check if customer has actual sales (visited in reality)
+                    const hasActualSales = customer.items.some(item => {
+                      const actualQty = isVisited
+                        ? (actualQuantities[customer.customerCode]?.[item.itemCode] || item.actualQuantity)
+                        : (actualQuantities[customer.customerCode]?.[item.itemCode] || item.actualQuantity || 0);
+                      return actualQty > 0;
+                    });
+
                     return (
                       <div key={customerIndex} className="border border-gray-200 rounded-lg">
                         {/* Collapsible Header */}
@@ -1042,7 +1050,12 @@ const SalesSupervision: React.FC = () => {
                               </button>
                               <div>
                                 <h4 className="text-sm font-semibold text-gray-900">{customer.customerName}</h4>
-                                <p className="text-xs text-gray-600">Code: {customer.customerCode}</p>
+                                <p className="text-xs text-gray-600 flex items-center gap-1">
+                                  Code: {customer.customerCode}
+                                  {hasActualSales && (
+                                    <CheckCircle className="w-3.5 h-3.5 text-green-600" title="Customer has sales data (visited)" />
+                                  )}
+                                </p>
                               </div>
                             </div>
                             
