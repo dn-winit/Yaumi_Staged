@@ -3,7 +3,7 @@ import { PageHeader, LoadingState, EmptyState, Toast } from '../common';
 import ForecastChart from './ForecastChart';
 import ForecastTable from './ForecastTable';
 import ForecastFilters from './ForecastFilters';
-import { getForecastData } from '../../services/api';
+import { getForecastData, apiClient } from '../../services/api';
 import { ForecastDataPoint, ForecastFilters as ForecastFiltersType } from '../../types';
 
 const Forecast: React.FC = () => {
@@ -17,12 +17,7 @@ const Forecast: React.FC = () => {
     setRefreshing(true);
 
     try {
-      const response = await fetch('/api/v1/refresh-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      const result = await response.json();
+      const result: any = await apiClient.post('/refresh-data');
 
       if (result.success) {
         setToast({ message: 'Data refreshed successfully!', type: 'success' });

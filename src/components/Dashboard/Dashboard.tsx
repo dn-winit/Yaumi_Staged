@@ -4,7 +4,7 @@ import DashboardChart from './DashboardChart';
 import DashboardTable from './DashboardTable';
 import DashboardFilters from './DashboardFilters';
 import HistoricalPopup from './HistoricalPopup';
-import { getDashboardData, getHistoricalAverages } from '../../services/api';
+import { getDashboardData, getHistoricalAverages, apiClient } from '../../services/api';
 import { DashboardDataPoint, DashboardFilters as DashboardFiltersType, HistoricalAverages } from '../../types';
 
 const Dashboard: React.FC = () => {
@@ -24,12 +24,7 @@ const Dashboard: React.FC = () => {
     setRefreshing(true);
 
     try {
-      const response = await fetch('/api/v1/refresh-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      const result = await response.json();
+      const result: any = await apiClient.post('/refresh-data');
 
       if (result.success) {
         setToast({ message: 'Data refreshed successfully!', type: 'success' });

@@ -6,7 +6,8 @@ import {
   getSalesSupervisionFilterOptions,
   getSalesSupervisionData,
   getRecommendedOrderData,
-  salesSupervisionAPI
+  salesSupervisionAPI,
+  apiClient
 } from '../../services/api';
 
 // Import types from centralized types file
@@ -78,12 +79,7 @@ const SalesSupervision: React.FC = () => {
     setRefreshMessage(null);
 
     try {
-      const response = await fetch('/api/v1/refresh-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      const result = await response.json();
+      const result: any = await apiClient.post('/refresh-data');
 
       if (result.success) {
         setRefreshMessage({

@@ -4,6 +4,7 @@ import RecommendedOrderChart from './RecommendedOrderChart';
 import RecommendedOrderTable from './RecommendedOrderTable';
 import RecommendedOrderFiltersComponent from './RecommendedOrderFilters';
 import { RecommendedOrderDataPoint, RecommendedOrderFilters } from '../../types';
+import { apiClient } from '../../services/api';
 
 const RecommendedOrder: React.FC = () => {
   const [recommendedOrderData, setRecommendedOrderData] = useState<RecommendedOrderDataPoint[]>([]);
@@ -16,12 +17,7 @@ const RecommendedOrder: React.FC = () => {
     setRefreshing(true);
 
     try {
-      const response = await fetch('/api/v1/refresh-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      const result = await response.json();
+      const result: any = await apiClient.post('/refresh-data');
 
       if (result.success) {
         setToast({ message: 'Data refreshed successfully!', type: 'success' });
