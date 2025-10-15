@@ -45,11 +45,11 @@ class RecommendationStorage:
             insert_query = f"""
                 INSERT INTO {self.table_name} (
                     trx_date, route_code, customer_code, item_code, item_name,
-                    actual_quantity, recommended_quantity, tier, van_load, priority_score,
+                    recommended_quantity, tier, van_load, priority_score,
                     avg_quantity_per_visit, days_since_last_purchase,
                     purchase_cycle_days, frequency_percent,
                     generated_at, generated_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
 
             # Prepare data for bulk insert
@@ -63,7 +63,6 @@ class RecommendationStorage:
                     str(row['CustomerCode']),
                     str(row['ItemCode']),
                     str(row['ItemName']),
-                    int(row.get('ActualQuantity', 0)),
                     int(row['RecommendedQuantity']),
                     str(row['Tier']),
                     int(row['VanLoad']),
@@ -124,7 +123,6 @@ class RecommendationStorage:
                     customer_code AS CustomerCode,
                     item_code AS ItemCode,
                     item_name AS ItemName,
-                    actual_quantity AS ActualQuantity,
                     recommended_quantity AS RecommendedQuantity,
                     tier AS Tier,
                     van_load AS VanLoad,

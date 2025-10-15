@@ -9,120 +9,26 @@ import {
   salesSupervisionAPI
 } from '../../services/api';
 
+// Import types from centralized types file
+import type {
+  FilterOption,
+  DemandItem,
+  CustomerItem,
+  Customer,
+  EditingItemState,
+  CustomerAnalysisResult,
+  RouteAnalysisResult,
+  SessionSummary,
+  SalesData,
+  RefreshMessage,
+  ToastMessage
+} from './types';
 
+// Import utility helpers
+import { apiCallWithTimeout } from './utils/helpers';
 
-interface FilterOption {
-  code: string;
-  name: string;
-}
-
-interface DemandItem {
-  itemCode: string;
-  itemName: string;
-  allocatedQuantity: number;
-  totalQuantity: number;
-  avgPrice: number;
-}
-
-interface CustomerItem {
-  itemCode: string;
-  itemName: string;
-  actualQuantity: number;
-  recommendedQuantity: number;
-  tier: string;
-  probabilityPercent: number;
-  urgencyScore: number;
-}
-
-interface Customer {
-  customerCode: string;
-  customerName: string;
-  score: number;
-  coverage: number;
-  accuracy: number;
-  items: CustomerItem[];
-  totalItems: number;
-  totalRecommendedQty: number;
-  totalActualQty: number;
-}
-
-
-interface EditingItemState {
-  customerCode: string;
-  itemCode: string;
-  value: string;
-}
-
-interface CustomerAnalysisResult {
-  customer_code: string;
-  performance_summary: string;
-  strengths: string[];
-  weaknesses: string[];
-  likely_reasons: string[];
-  immediate_actions: string[];
-  follow_up_actions: string[];
-  identified_patterns: string[];
-  red_flags: string[];
-  performance_score: number;
-  coverage?: number;
-  accuracy?: number;
-  total_items: number;
-  skus_sold?: number;
-  total_recommended: number;
-  total_actual: number;
-}
-
-interface RouteAnalysisResult {
-  route_code: string;
-  route_summary: string;
-  high_performers: string[];
-  needs_attention: string[];
-  route_strengths: string[];
-  route_weaknesses: string[];
-  optimization_opportunities: string[];
-  overstocked_items: string[];
-  understocked_items: string[];
-  coaching_areas: string[];
-  best_practices: string[];
-  date?: string;
-  metrics?: {
-    totalCustomers: number;
-    visitedCustomers: number;
-    completionRate: number;
-    averageScore: number;
-  };
-}
-
-interface SessionSummary {
-  route_code: string;
-  date: string;
-  session_id: string;
-  visited_customers: number;
-  total_customers: number;
-  performance_rate: number;
-  redistribution_count: number;
-  total_actual: number;
-  total_recommended: number;
-  visited_recommended: number;
-  remaining_customers: number;
-}
-
-interface SalesData {
-  route: string;
-  date: string;
-  demandSection: {
-    items: DemandItem[];
-    totalItems: number;
-    totalAllocatedQty: number;
-    totalQty: number;
-  };
-  recommendedOrderSection: {
-    hasData: boolean;
-    customers: Customer[];
-    totalCustomers: number;
-    avgScore: number;
-  };
-}
+// Import sub-components
+import DemandSection from './components/DemandSection';
 
 const SalesSupervision: React.FC = () => {
   const [filterOptions, setFilterOptions] = useState<{ routes: FilterOption[]; dates: string[] }>({
@@ -166,16 +72,6 @@ const SalesSupervision: React.FC = () => {
   useEffect(() => {
     loadFilterOptions();
   }, []);
-
-  // Network timeout helper
-  const apiCallWithTimeout = async <T,>(apiCall: Promise<T>, timeoutMs: number = 60000): Promise<T> => {
-    return Promise.race([
-      apiCall,
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
-      )
-    ]);
-  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -298,6 +194,24 @@ const SalesSupervision: React.FC = () => {
             coaching_areas: [],
             best_practices: [],
             metrics: savedSession.session_summary
+          });
+        }
+
+        // Set endOfDaySummary from saved session_summary for metrics display
+        if (savedSession.session_summary) {
+          const summary = savedSession.session_summary;
+          setEndOfDaySummary({
+            route_code: summary.route_code || selectedRoute,
+            date: summary.date || selectedDate,
+            session_id: savedSession.session_id || '',
+            visited_customers: summary.total_customers_visited || visitedSet.size,
+            total_customers: summary.total_customers_planned || data.recommendedOrderSection.totalCustomers,
+            performance_rate: summary.qty_fulfillment_rate || 0,
+            redistribution_count: summary.redistribution_count || 0,
+            total_actual: summary.total_qty_actual || 0,
+            total_recommended: summary.total_qty_recommended || 0,
+            visited_recommended: summary.total_qty_recommended || 0, // Use total for visited in historical
+            remaining_customers: (summary.total_customers_planned || 0) - (summary.total_customers_visited || 0)
           });
         }
 
@@ -1091,41 +1005,7 @@ const SalesSupervision: React.FC = () => {
             )}
 
             {/* Demand Section */}
-            <div className="ui-card">
-              <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                <Package className="w-5 h-5 mr-2 text-blue-600" />
-                Demand Data
-              </h3>
-              
-              {salesData.demandSection.items.length > 0 ? (
-                <>
-                  <div className="overflow-x-auto max-h-96 overflow-y-auto">
-                    <table className="w-full">
-                      <thead className="sticky top-0 bg-white z-10">
-                        <tr className="border-b border-gray-200">
-                          <th className="text-left py-2 px-3 font-medium text-gray-700 text-sm">Item Code</th>
-                          <th className="text-left py-2 px-3 font-medium text-gray-700 text-sm">Item Name</th>
-                          <th className="text-right py-2 px-3 font-medium text-gray-700 text-sm">Allocated Qty</th>
-                          <th className="text-right py-2 px-3 font-medium text-gray-700 text-sm">Avg Price</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {salesData.demandSection.items.map((item, index) => (
-                          <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="py-2 px-3 text-gray-900 text-sm">{item.itemCode}</td>
-                            <td className="py-2 px-3 text-gray-700 text-sm">{item.itemName}</td>
-                            <td className="py-2 px-3 text-right text-gray-900 text-sm">{item.allocatedQuantity}</td>
-                            <td className="py-2 px-3 text-right text-gray-900 text-sm">{item.avgPrice.toFixed(2)} AED</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              ) : (
-                <p className="text-gray-500 text-center py-6 text-sm">No demand data available for the selected filters</p>
-              )}
-            </div>
+            <DemandSection items={salesData.demandSection.items} />
 
             {/* Recommended Order Section */}
             <div className="ui-card">
@@ -1372,7 +1252,7 @@ const SalesSupervision: React.FC = () => {
                   {/* Route Summary - Available in both modes */}
                   <button
                     onClick={handleRouteAnalysis}
-                    disabled={loadingRouteAnalysis || (isHistoricalMode && routeAnalysis !== null)}
+                    disabled={loadingRouteAnalysis || (isHistoricalMode && !routeAnalysis)}
                     className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
                   >
                     {loadingRouteAnalysis ? (

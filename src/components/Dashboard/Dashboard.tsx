@@ -17,7 +17,31 @@ const Dashboard: React.FC = () => {
   const [selectedPredictedQuantity, setSelectedPredictedQuantity] = useState<number | undefined>();
   const [selectedActualQuantity, setSelectedActualQuantity] = useState<number | undefined>();
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState<{message: string; type: 'success' | 'error' | 'warning' | 'info'} | null>(null);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+
+    try {
+      const response = await fetch('/api/v1/refresh-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setToast({ message: 'Data refreshed successfully!', type: 'success' });
+      } else {
+        setToast({ message: result.message || 'Failed to refresh data', type: 'error' });
+      }
+    } catch (error) {
+      setToast({ message: 'Error connecting to server', type: 'error' });
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleFiltersSubmit = async (filters: DashboardFiltersType) => {
     setLoading(true);
@@ -84,6 +108,8 @@ const Dashboard: React.FC = () => {
               { color: 'bg-blue-400', label: 'Predicted' }
             ]
           }}
+          onRefresh={handleRefresh}
+          refreshing={refreshing}
         />
 
         <DashboardFilters onFiltersSubmit={handleFiltersSubmit} />

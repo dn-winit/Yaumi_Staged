@@ -29,8 +29,7 @@ CREATE TABLE [dbo].[tbl_recommended_orders] (
     item_code VARCHAR(50) NOT NULL,
     item_name NVARCHAR(255),
 
-    -- Recommendation quantities
-    actual_quantity INT DEFAULT 0,
+    -- Recommendation quantity
     recommended_quantity INT NOT NULL,
 
     -- Recommendation metadata

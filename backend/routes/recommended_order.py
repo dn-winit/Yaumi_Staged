@@ -32,23 +32,20 @@ class TieredRecommendationSystem:
 
         # Load data
         demand_df, customer_df, journey_customers = self._load_data(target_date, route_code)
-        
+
         if demand_df.empty or not journey_customers:
             return pd.DataFrame()
-        
+
         # Get van inventory and item names
         van_items = demand_df.set_index('ItemCode')['Predicted'].to_dict()
         item_names = demand_df.set_index('ItemCode')['ItemName'].to_dict()
         actual_route_code = demand_df['RouteCode'].iloc[0] if not demand_df.empty else route_code
-        
-        # Load actual quantities for target date
-        actual_quantities = self._load_actual_quantities(target_date, route_code)
-        
-        # Generate recommendations
+
+        # Generate recommendations (actual quantities will be fetched live when needed)
         recommendations = self._generate_recommendations(
-            customer_df, journey_customers, van_items, item_names, actual_route_code, target_date, actual_quantities
+            customer_df, journey_customers, van_items, item_names, actual_route_code, target_date
         )
-        
+
         if recommendations.empty:
             return pd.DataFrame()
 
@@ -142,7 +139,7 @@ class TieredRecommendationSystem:
             return {}
     
     def _generate_recommendations(self, customer_df, journey_customers,
-                                 van_items, item_names, route_code, target_date, actual_quantities):
+                                 van_items, item_names, route_code, target_date):
         """Generate tiered recommendations using unified priority system"""
         # Ensure target_date is provided for deterministic generation
         if not target_date:
@@ -172,7 +169,7 @@ class TieredRecommendationSystem:
             if customer_data is None:
                 # New customer - recommend popular items
                 recommendations.extend(
-                    self._recommend_for_new_customer(customer, van_items, item_names, route_code, target_date, actual_quantities)
+                    self._recommend_for_new_customer(customer, van_items, item_names, route_code, target_date)
                 )
                 continue
 
@@ -211,10 +208,6 @@ class TieredRecommendationSystem:
                 tier = self.priority_calculator.get_tier(priority, 'balanced')
 
                 if recommended_qty > 0:
-                    # Get actual quantity for this combination
-                    actual_key = (str(route_code), str(customer), str(item))
-                    actual_qty = actual_quantities.get(actual_key, 0)
-
                     # Final validation and bounds checking (matching legacy exactly)
                     avg_qty_final = metrics['avg_qty']
                     cycle_days_final = metrics['cycle_days']
@@ -240,7 +233,6 @@ class TieredRecommendationSystem:
                         'CustomerCode': customer,
                         'ItemCode': item,
                         'ItemName': item_names.get(item, ''),
-                        'ActualQuantity': int(actual_qty) if actual_qty else 0,
                         'RecommendedQuantity': int(recommended_qty),
                         'Tier': tier,
                         'VanLoad': van_qty,
@@ -262,7 +254,7 @@ class TieredRecommendationSystem:
             # Reorder columns for clean output
             column_order = [
                 'TrxDate', 'RouteCode', 'CustomerCode', 'ItemCode', 'ItemName',
-                'ActualQuantity', 'RecommendedQuantity', 'Tier', 'VanLoad',
+                'RecommendedQuantity', 'Tier', 'VanLoad',
                 'PriorityScore', 'AvgQuantityPerVisit', 'DaysSinceLastPurchase',
                 'PurchaseCycleDays', 'FrequencyPercent'
             ]
@@ -367,7 +359,7 @@ class TieredRecommendationSystem:
 
         return int(recommended_qty)
     
-    def _recommend_for_new_customer(self, customer, van_items, item_names, route_code, target_date, actual_quantities):
+    def _recommend_for_new_customer(self, customer, van_items, item_names, route_code, target_date):
         """Generate recommendations for new customers using demand-based selection"""
         recommendations = []
 
@@ -377,10 +369,6 @@ class TieredRecommendationSystem:
 
         for item in popular_items:
             if van_items[item] > 0:
-                # Get actual quantity for this combination
-                actual_key = (str(route_code), str(customer), str(item))
-                actual_qty = actual_quantities.get(actual_key, 0)
-
                 recommended_qty = min(QUANTITY_PARAMS['NEW_CUSTOMER_QTY'], van_items[item])
 
                 recommendations.append({
@@ -389,7 +377,6 @@ class TieredRecommendationSystem:
                     'CustomerCode': customer,
                     'ItemCode': item,
                     'ItemName': item_names.get(item, ''),
-                    'ActualQuantity': int(actual_qty) if actual_qty else 0,
                     'RecommendedQuantity': int(recommended_qty),
                     'Tier': NEW_CUSTOMER_PARAMS['TIER'],
                     'VanLoad': van_items[item],
@@ -696,6 +683,36 @@ async def get_recommended_order_data(filters: RecommendedOrderFilters):
                 "status": data_source,
                 "message": f"No data matches the selected filters for {target_date}"
             }
+
+        # Fetch live actual quantities from cached customer_data
+        customer_df = data_manager.get_customer_data()
+        if not customer_df.empty:
+            # Standardize codes
+            for col in ['CustomerCode', 'ItemCode', 'RouteCode']:
+                if col in customer_df.columns:
+                    customer_df[col] = customer_df[col].astype(str).str.strip()
+
+            # Filter for target date
+            target_dt = pd.to_datetime(target_date)
+            target_sales = customer_df[customer_df['TrxDate'] == target_dt]
+
+            # Create lookup dictionary: (RouteCode, CustomerCode, ItemCode) -> TotalQuantity
+            actual_dict = {}
+            for _, row in target_sales.iterrows():
+                key = (str(row['RouteCode']), str(row['CustomerCode']), str(row['ItemCode']))
+                actual_dict[key] = row['TotalQuantity']
+
+            # Add ActualQuantity to filtered_df based on live data
+            filtered_df['ActualQuantity'] = filtered_df.apply(
+                lambda row: int(actual_dict.get(
+                    (str(row['RouteCode']), str(row['CustomerCode']), str(row['ItemCode'])),
+                    0
+                )),
+                axis=1
+            )
+        else:
+            # If no customer data available, set to 0
+            filtered_df['ActualQuantity'] = 0
 
         # Determine aggregation strategy
         multiple_customers = len(filters.customer_codes) > 1 or 'All' in filters.customer_codes

@@ -181,10 +181,42 @@ async def get_sales_supervision_data(filters: SalesSupervisionFilters):
             # Recommendations exist in database
             rec_filtered = rec_df
 
+            # Fetch live actual quantities from cached customer_data
+            customer_sales_df = data_manager.get_customer_data()
+            actual_dict = {}
+
+            if not customer_sales_df.empty:
+                # Standardize codes
+                for col in ['CustomerCode', 'ItemCode', 'RouteCode']:
+                    if col in customer_sales_df.columns:
+                        customer_sales_df[col] = customer_sales_df[col].astype(str).str.strip()
+
+                # Filter for target date
+                target_dt = pd.to_datetime(target_date)
+                target_sales = customer_sales_df[customer_sales_df['TrxDate'] == target_dt]
+
+                # Create lookup dictionary: (RouteCode, CustomerCode, ItemCode) -> TotalQuantity
+                for _, row in target_sales.iterrows():
+                    key = (str(row['RouteCode']), str(row['CustomerCode']), str(row['ItemCode']))
+                    actual_dict[key] = row['TotalQuantity']
+
+            # Add ActualQuantity to rec_filtered based on live data
+            if actual_dict:
+                rec_filtered['ActualQuantity'] = rec_filtered.apply(
+                    lambda row: int(actual_dict.get(
+                        (str(row['RouteCode']), str(row['CustomerCode']), str(row['ItemCode'])),
+                        0
+                    )),
+                    axis=1
+                )
+            else:
+                # If no actual data available, set to 0
+                rec_filtered['ActualQuantity'] = 0
+
             if not rec_filtered.empty:
                 # Group by customer
                 customers = rec_filtered['CustomerCode'].unique()
-                
+
                 for customer in customers:
                     customer_data = rec_filtered[rec_filtered['CustomerCode'] == customer]
                     
