@@ -10,7 +10,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'dashboard' | 'forecast' | 'recommended-order' | 'sales-supervision'>('home');
 
   useEffect(() => {
-    document.title = 'WINIT Analytics Platform';
+    document.title = 'In-Progress';
   }, []);
 
   // Handle navigation with scroll to top
