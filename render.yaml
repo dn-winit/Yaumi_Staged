@@ -42,7 +42,7 @@ services:
 
       # CORS - Update with your Vercel frontend URL
       - key: CORS_ORIGINS
-        value: "https://*.vercel.app,https://staged.vercel.app"
+        value: "https://*.vercel.app,https://staged-five.vercel.app"
 
       - key: LOG_LEVEL
         value: "INFO"

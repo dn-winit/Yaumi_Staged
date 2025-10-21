@@ -47,7 +47,7 @@ GROQ_API_KEY=your-analytics-api-key
 SECRET_KEY=generate-using-python-secrets
 
 # CORS (Update after frontend deployment)
-CORS_ORIGINS=https://*.vercel.app,https://staged.vercel.app
+CORS_ORIGINS=https://*.vercel.app,https://staged-five.vercel.app
 ```
 
 **Generate SECRET_KEY:**
@@ -130,7 +130,7 @@ vercel --prod
 
 ### 2.3 Get Frontend URL
 
-You'll receive: `https://staged.vercel.app`
+You'll receive: `https://staged-five.vercel.app`
 
 ---
 
@@ -142,14 +142,14 @@ Go to **Render Dashboard** -> **yaumi-backend** -> **Environment**
 
 Update `CORS_ORIGINS`:
 ```bash
-CORS_ORIGINS=https://staged.vercel.app,https://staged-git-*.vercel.app
+CORS_ORIGINS=https://staged-five.vercel.app,https://staged-git-*.vercel.app
 ```
 
 Click **"Save Changes"** - Backend auto-redeploys
 
 ### 3.2 Test Connection
 
-1. Open `https://staged.vercel.app`
+1. Open `https://staged-five.vercel.app`
 2. Check browser console for errors
 3. Test API calls (Dashboard, Forecast, etc.)
 
@@ -346,7 +346,7 @@ Solution:
 
 Your application is now live:
 
-- **Frontend**: https://staged.vercel.app
+- **Frontend**: https://staged-five.vercel.app
 - **Backend**: https://staged.onrender.com
 - **API Docs** (dev only): https://staged.onrender.com/api/docs
 
