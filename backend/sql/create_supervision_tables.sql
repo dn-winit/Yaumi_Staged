@@ -1,20 +1,21 @@
 -- =====================================================
--- SALES SUPERVISION SYSTEM - TABLE CREATION SCRIPT
+-- STAGED SALES SUPERVISION SYSTEM - TABLE CREATION SCRIPT
 -- Database: YaumiAIML
 -- Author: WINIT Analytics Team
--- Created: 2025-10-09
+-- Created: 2025-01-10
+-- Purpose: STAGED environment tables (separate from production)
 -- =====================================================
 
 USE [YaumiAIML]
 GO
 
 -- =====================================================
--- Table 1: Route Summary (Master)
--- Purpose: Session-level aggregated metrics
+-- Table 1: STAGED Route Summary (Master)
+-- Purpose: Session-level aggregated metrics for STAGED environment
 -- =====================================================
-IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[tbl_supervision_route_summary]') AND type in (N'U'))
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[tbl_staged_supervision_route_summary]') AND type in (N'U'))
 BEGIN
-    CREATE TABLE [dbo].[tbl_supervision_route_summary] (
+    CREATE TABLE [dbo].[tbl_staged_supervision_route_summary] (
         -- Primary Key
         route_summary_id INT IDENTITY(1,1) PRIMARY KEY,
 
@@ -55,27 +56,31 @@ BEGIN
         session_started_at DATETIME DEFAULT GETDATE(),
         session_completed_at DATETIME,
 
+        -- Optimistic Locking (for STAGED environment)
+        record_version INT NOT NULL DEFAULT 1,
+
         -- Indexes
-        CONSTRAINT idx_route_date UNIQUE (route_code, supervision_date),
-        INDEX idx_session (session_id),
-        INDEX idx_status (session_status)
+        CONSTRAINT idx_staged_route_date UNIQUE (route_code, supervision_date),
+        INDEX idx_staged_session (session_id),
+        INDEX idx_staged_status (session_status),
+        INDEX idx_staged_session_version (session_id, record_version)
     )
 
-    PRINT 'Table [tbl_supervision_route_summary] created successfully'
+    PRINT 'STAGED Table [tbl_staged_supervision_route_summary] created successfully'
 END
 ELSE
 BEGIN
-    PRINT 'Table [tbl_supervision_route_summary] already exists'
+    PRINT 'STAGED Table [tbl_staged_supervision_route_summary] already exists'
 END
 GO
 
 -- =====================================================
--- Table 2: Customer Summary (Visited Only)
--- Purpose: Customer-level performance tracking
+-- Table 2: STAGED Customer Summary (Visited Only)
+-- Purpose: Customer-level performance tracking for STAGED environment
 -- =====================================================
-IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[tbl_supervision_customer_summary]') AND type in (N'U'))
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[tbl_staged_supervision_customer_summary]') AND type in (N'U'))
 BEGIN
-    CREATE TABLE [dbo].[tbl_supervision_customer_summary] (
+    CREATE TABLE [dbo].[tbl_staged_supervision_customer_summary] (
         -- Primary Key
         customer_summary_id INT IDENTITY(1,1) PRIMARY KEY,
 
@@ -107,30 +112,30 @@ BEGIN
         record_saved_at DATETIME DEFAULT GETDATE(),
 
         -- Constraints & Indexes
-        CONSTRAINT UQ_session_customer UNIQUE (session_id, customer_code),
-        CONSTRAINT FK_customer_route FOREIGN KEY (session_id)
-            REFERENCES tbl_supervision_route_summary(session_id) ON DELETE CASCADE,
-        INDEX idx_session (session_id),
-        INDEX idx_customer (customer_code),
-        INDEX idx_visit_order (session_id, visit_sequence),
-        INDEX idx_performance (customer_performance_score)
+        CONSTRAINT UQ_staged_session_customer UNIQUE (session_id, customer_code),
+        CONSTRAINT FK_staged_customer_route FOREIGN KEY (session_id)
+            REFERENCES tbl_staged_supervision_route_summary(session_id) ON DELETE CASCADE,
+        INDEX idx_staged_session (session_id),
+        INDEX idx_staged_customer (customer_code),
+        INDEX idx_staged_visit_order (session_id, visit_sequence),
+        INDEX idx_staged_performance (customer_performance_score)
     )
 
-    PRINT 'Table [tbl_supervision_customer_summary] created successfully'
+    PRINT 'STAGED Table [tbl_staged_supervision_customer_summary] created successfully'
 END
 ELSE
 BEGIN
-    PRINT 'Table [tbl_supervision_customer_summary] already exists'
+    PRINT 'STAGED Table [tbl_staged_supervision_customer_summary] already exists'
 END
 GO
 
 -- =====================================================
--- Table 3: Item Details (Transactional)
--- Purpose: Item-level actual vs recommended tracking
+-- Table 3: STAGED Item Details (Transactional)
+-- Purpose: Item-level actual vs recommended tracking for STAGED environment
 -- =====================================================
-IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[tbl_supervision_item_details]') AND type in (N'U'))
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[tbl_staged_supervision_item_details]') AND type in (N'U'))
 BEGIN
-    CREATE TABLE [dbo].[tbl_supervision_item_details] (
+    CREATE TABLE [dbo].[tbl_staged_supervision_item_details] (
         -- Primary Key
         item_detail_id INT IDENTITY(1,1) PRIMARY KEY,
 
@@ -167,18 +172,18 @@ BEGIN
         record_saved_at DATETIME DEFAULT GETDATE(),
 
         -- Constraints & Indexes
-        CONSTRAINT UQ_session_customer_item UNIQUE (session_id, customer_code, item_code),
-        INDEX idx_session (session_id),
-        INDEX idx_customer (customer_code),
-        INDEX idx_item (item_code),
-        INDEX idx_sold (was_item_sold)
+        CONSTRAINT UQ_staged_session_customer_item UNIQUE (session_id, customer_code, item_code),
+        INDEX idx_staged_session (session_id),
+        INDEX idx_staged_customer (customer_code),
+        INDEX idx_staged_item (item_code),
+        INDEX idx_staged_sold (was_item_sold)
     )
 
-    PRINT 'Table [tbl_supervision_item_details] created successfully'
+    PRINT 'STAGED Table [tbl_staged_supervision_item_details] created successfully'
 END
 ELSE
 BEGIN
-    PRINT 'Table [tbl_supervision_item_details] already exists'
+    PRINT 'STAGED Table [tbl_staged_supervision_item_details] already exists'
 END
 GO
 
@@ -187,32 +192,33 @@ GO
 -- =====================================================
 PRINT ''
 PRINT '============================================='
-PRINT 'SUPERVISION TABLES CREATED SUCCESSFULLY'
+PRINT 'STAGED SUPERVISION TABLES CREATED SUCCESSFULLY'
 PRINT '============================================='
 PRINT ''
 
 SELECT
-    'tbl_supervision_route_summary' as TableName,
+    'tbl_staged_supervision_route_summary' as TableName,
     COUNT(*) as ColumnCount
 FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_NAME = 'tbl_supervision_route_summary'
+WHERE TABLE_NAME = 'tbl_staged_supervision_route_summary'
 
 UNION ALL
 
 SELECT
-    'tbl_supervision_customer_summary' as TableName,
+    'tbl_staged_supervision_customer_summary' as TableName,
     COUNT(*) as ColumnCount
 FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_NAME = 'tbl_supervision_customer_summary'
+WHERE TABLE_NAME = 'tbl_staged_supervision_customer_summary'
 
 UNION ALL
 
 SELECT
-    'tbl_supervision_item_details' as TableName,
+    'tbl_staged_supervision_item_details' as TableName,
     COUNT(*) as ColumnCount
 FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_NAME = 'tbl_supervision_item_details'
+WHERE TABLE_NAME = 'tbl_staged_supervision_item_details'
 
 GO
 
-PRINT 'Script execution completed!'
+PRINT 'STAGED Script execution completed!'
+PRINT 'These tables are separate from production tables and safe for testing.'

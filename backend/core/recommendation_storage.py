@@ -18,7 +18,7 @@ class RecommendationStorage:
 
     def __init__(self):
         self.db_manager = get_database_manager()
-        self.table_name = "[YaumiAIML].[dbo].[tbl_recommended_orders]"
+        self.table_name = "[YaumiAIML].[dbo].[tbl_staged_recommended_orders]"
 
     def save_recommendations(self, recommendations_df: pd.DataFrame, date: str, route_code: str) -> Dict[str, Any]:
         """

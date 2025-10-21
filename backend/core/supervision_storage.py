@@ -18,9 +18,9 @@ class SupervisionStorage:
 
     def __init__(self):
         self.db_manager = get_database_manager()
-        self.route_table = "[YaumiAIML].[dbo].[tbl_supervision_route_summary]"
-        self.customer_table = "[YaumiAIML].[dbo].[tbl_supervision_customer_summary]"
-        self.item_table = "[YaumiAIML].[dbo].[tbl_supervision_item_details]"
+        self.route_table = "[YaumiAIML].[dbo].[tbl_staged_supervision_route_summary]"
+        self.customer_table = "[YaumiAIML].[dbo].[tbl_staged_supervision_customer_summary]"
+        self.item_table = "[YaumiAIML].[dbo].[tbl_staged_supervision_item_details]"
 
     def save_supervision_session(
         self,

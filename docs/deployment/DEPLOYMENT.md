@@ -47,7 +47,7 @@ GROQ_API_KEY=your-analytics-api-key
 SECRET_KEY=generate-using-python-secrets
 
 # CORS (Update after frontend deployment)
-CORS_ORIGINS=https://*.vercel.app,https://yaumi-frontend.vercel.app
+CORS_ORIGINS=https://*.vercel.app,https://staged.vercel.app
 ```
 
 **Generate SECRET_KEY:**
@@ -60,12 +60,12 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 1. Click **"Manual Deploy"** -> **"Deploy latest commit"**
 2. Monitor logs in Dashboard
 3. Wait for "Build successful" message
-4. Note your backend URL: `https://yaumi-backend.onrender.com`
+4. Note your backend URL: `https://staged.onrender.com`
 
 ### 1.5 Test Backend
 
 ```bash
-curl https://yaumi-backend.onrender.com/health
+curl https://staged.onrender.com/health
 ```
 
 Expected response:
@@ -100,7 +100,7 @@ Expected response:
 
 4. **Environment Variables**:
    ```bash
-   VITE_API_URL=https://yaumi-backend.onrender.com/api/v1
+   VITE_API_URL=https://staged.onrender.com/api/v1
    ```
 
 5. Click **"Deploy"**
@@ -122,7 +122,7 @@ vercel
 
 # Set environment variable
 vercel env add VITE_API_URL production
-# Enter: https://yaumi-backend.onrender.com/api/v1
+# Enter: https://staged.onrender.com/api/v1
 
 # Deploy to production
 vercel --prod
@@ -130,7 +130,7 @@ vercel --prod
 
 ### 2.3 Get Frontend URL
 
-You'll receive: `https://yaumi-frontend.vercel.app`
+You'll receive: `https://staged.vercel.app`
 
 ---
 
@@ -142,14 +142,14 @@ Go to **Render Dashboard** -> **yaumi-backend** -> **Environment**
 
 Update `CORS_ORIGINS`:
 ```bash
-CORS_ORIGINS=https://yaumi-frontend.vercel.app,https://yaumi-frontend-git-*.vercel.app
+CORS_ORIGINS=https://staged.vercel.app,https://staged-git-*.vercel.app
 ```
 
 Click **"Save Changes"** - Backend auto-redeploys
 
 ### 3.2 Test Connection
 
-1. Open `https://yaumi-frontend.vercel.app`
+1. Open `https://staged.vercel.app`
 2. Check browser console for errors
 3. Test API calls (Dashboard, Forecast, etc.)
 
@@ -165,7 +165,7 @@ Render free tier sleeps after 15 minutes of inactivity.
 2. Sign up (free)
 3. Add New Monitor:
    - **Type**: HTTP(s)
-   - **URL**: `https://yaumi-backend.onrender.com/health`
+   - **URL**: `https://staged.onrender.com/health`
    - **Monitoring Interval**: 5 minutes
 4. Save
 
@@ -187,7 +187,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping backend
-        run: curl https://yaumi-backend.onrender.com/health
+        run: curl https://staged.onrender.com/health
 ```
 
 ---
@@ -346,9 +346,9 @@ Solution:
 
 Your application is now live:
 
-- **Frontend**: https://yaumi-frontend.vercel.app
-- **Backend**: https://yaumi-backend.onrender.com
-- **API Docs** (dev only): https://yaumi-backend.onrender.com/api/docs
+- **Frontend**: https://staged.vercel.app
+- **Backend**: https://staged.onrender.com
+- **API Docs** (dev only): https://staged.onrender.com/api/docs
 
 **Next Steps:**
 1. Share URLs with team

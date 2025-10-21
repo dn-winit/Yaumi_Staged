@@ -1,11 +1,11 @@
 """
-Clear all data from tbl_recommended_orders table
+Clear all data from tbl_staged_recommended_orders table
 """
 
 import pyodbc
 
-def clear_table():
-    """Delete all records from tbl_recommended_orders"""
+def clear_staged_table():
+    """Delete all records from tbl_staged_recommended_orders"""
 
     server = '20.46.47.104'
     database = 'YaumiAIML'
@@ -19,11 +19,11 @@ def clear_table():
         cursor = conn.cursor()
 
         # Delete all records
-        cursor.execute("DELETE FROM [dbo].[tbl_recommended_orders]")
+        cursor.execute("DELETE FROM [dbo].[tbl_staged_recommended_orders]")
         conn.commit()
 
         # Check count
-        cursor.execute("SELECT COUNT(*) FROM [dbo].[tbl_recommended_orders]")
+        cursor.execute("SELECT COUNT(*) FROM [dbo].[tbl_staged_recommended_orders]")
         count = cursor.fetchone()[0]
 
         print(f"Table cleared successfully!")
@@ -37,4 +37,4 @@ def clear_table():
         raise
 
 if __name__ == "__main__":
-    clear_table()
+    clear_staged_table()

@@ -99,7 +99,7 @@ async def get_summary():
 **Vercel Environment Variables:**
 ```bash
 # Set in Vercel Dashboard > Settings > Environment Variables
-VITE_API_URL=https://salesvision-app.onrender.com/api/v1
+VITE_API_URL=https://staged.onrender.com/api/v1
 ```
 
 **Security Headers** (already configured in `vercel.json`):

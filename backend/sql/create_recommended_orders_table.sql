@@ -1,24 +1,24 @@
--- Create table for storing daily recommended orders
+-- Create STAGED table for storing daily recommended orders
 -- Database: YaumiAIML
--- Run this ONCE to create the table
+-- Run this ONCE to create the STAGED table (separate from production)
 
 USE [YaumiAIML];
 GO
 
 -- SAFE CHECK: Abort if table already exists (prevents accidental data loss)
-IF OBJECT_ID('[dbo].[tbl_recommended_orders]', 'U') IS NOT NULL
+IF OBJECT_ID('[dbo].[tbl_staged_recommended_orders]', 'U') IS NOT NULL
 BEGIN
-    PRINT 'WARNING: Table [tbl_recommended_orders] already exists!';
+    PRINT 'WARNING: Table [tbl_staged_recommended_orders] already exists!';
     PRINT 'Script aborted to prevent data loss.';
     PRINT 'If you want to recreate it, manually drop the table first.';
     RETURN;
 END
 GO
 
-PRINT 'Creating table [tbl_recommended_orders]...';
+PRINT 'Creating STAGED table [tbl_staged_recommended_orders]...';
 GO
 
-CREATE TABLE [dbo].[tbl_recommended_orders] (
+CREATE TABLE [dbo].[tbl_staged_recommended_orders] (
     -- Primary key
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
 
@@ -49,31 +49,32 @@ CREATE TABLE [dbo].[tbl_recommended_orders] (
     is_active BIT DEFAULT 1,
 
     -- Ensure uniqueness per date/route/customer/item
-    CONSTRAINT UQ_recommendation_daily UNIQUE (trx_date, route_code, customer_code, item_code)
+    CONSTRAINT UQ_staged_recommendation_daily UNIQUE (trx_date, route_code, customer_code, item_code)
 );
 GO
 
 -- Create indexes for fast queries
-CREATE NONCLUSTERED INDEX idx_date_route
-    ON [dbo].[tbl_recommended_orders] (trx_date, route_code)
+CREATE NONCLUSTERED INDEX idx_staged_date_route
+    ON [dbo].[tbl_staged_recommended_orders] (trx_date, route_code)
     INCLUDE (customer_code, item_code);
 GO
 
-CREATE NONCLUSTERED INDEX idx_customer
-    ON [dbo].[tbl_recommended_orders] (customer_code, trx_date);
+CREATE NONCLUSTERED INDEX idx_staged_customer
+    ON [dbo].[tbl_staged_recommended_orders] (customer_code, trx_date);
 GO
 
-CREATE NONCLUSTERED INDEX idx_item
-    ON [dbo].[tbl_recommended_orders] (item_code, trx_date);
+CREATE NONCLUSTERED INDEX idx_staged_item
+    ON [dbo].[tbl_staged_recommended_orders] (item_code, trx_date);
 GO
 
-CREATE NONCLUSTERED INDEX idx_generated_at
-    ON [dbo].[tbl_recommended_orders] (generated_at DESC);
+CREATE NONCLUSTERED INDEX idx_staged_generated_at
+    ON [dbo].[tbl_staged_recommended_orders] (generated_at DESC);
 GO
 
 -- Grant permissions (adjust as needed)
--- GRANT SELECT, INSERT, UPDATE, DELETE ON [dbo].[tbl_recommended_orders] TO [your_app_user];
+-- GRANT SELECT, INSERT, UPDATE, DELETE ON [dbo].[tbl_staged_recommended_orders] TO [your_app_user];
 -- GO
 
 PRINT 'All indexes created successfully!';
-PRINT 'Table [tbl_recommended_orders] is ready to use.';
+PRINT 'STAGED table [tbl_staged_recommended_orders] is ready to use.';
+PRINT 'This table is separate from production [tbl_recommended_orders]';

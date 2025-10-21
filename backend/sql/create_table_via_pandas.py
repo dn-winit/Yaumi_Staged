@@ -1,5 +1,5 @@
 """
-Create tbl_recommended_orders table using pandas to_sql()
+Create tbl_staged_recommended_orders table using pandas to_sql()
 This works even when direct CREATE TABLE permission is denied
 """
 
@@ -7,8 +7,8 @@ import pandas as pd
 from sqlalchemy import create_engine
 from datetime import datetime
 
-def create_recommended_orders_table():
-    """Create table using pandas to_sql() method"""
+def create_staged_recommended_orders_table():
+    """Create STAGED table using pandas to_sql() method"""
 
     # Database connection (same credentials as your app)
     server = '20.46.47.104'
@@ -43,13 +43,13 @@ def create_recommended_orders_table():
 
     try:
         # Create table with sample row (to establish schema)
-        print("Creating table tbl_recommended_orders...")
-        sample_df.to_sql('tbl_recommended_orders', engine, if_exists='replace', index=False)
-        print("✅ Table created successfully!")
+        print("Creating STAGED table tbl_staged_recommended_orders...")
+        sample_df.to_sql('tbl_staged_recommended_orders', engine, if_exists='replace', index=False)
+        print("✅ STAGED Table created successfully!")
 
         # Delete the sample row (keep empty table)
         with engine.connect() as conn:
-            conn.execute("DELETE FROM [dbo].[tbl_recommended_orders] WHERE customer_code = 'SAMPLE'")
+            conn.execute("DELETE FROM [dbo].[tbl_staged_recommended_orders] WHERE customer_code = 'SAMPLE'")
             conn.commit()
             print("✅ Sample data removed. Table is ready!")
 
@@ -59,29 +59,29 @@ def create_recommended_orders_table():
                 print("\nCreating indexes...")
 
                 conn.execute("""
-                    CREATE NONCLUSTERED INDEX idx_date_route
-                    ON [dbo].[tbl_recommended_orders] (trx_date, route_code)
+                    CREATE NONCLUSTERED INDEX idx_staged_date_route
+                    ON [dbo].[tbl_staged_recommended_orders] (trx_date, route_code)
                     INCLUDE (customer_code, item_code)
                 """)
-                print("✅ Index idx_date_route created")
+                print("✅ Index idx_staged_date_route created")
 
                 conn.execute("""
-                    CREATE NONCLUSTERED INDEX idx_customer
-                    ON [dbo].[tbl_recommended_orders] (customer_code, trx_date)
+                    CREATE NONCLUSTERED INDEX idx_staged_customer
+                    ON [dbo].[tbl_staged_recommended_orders] (customer_code, trx_date)
                 """)
-                print("✅ Index idx_customer created")
+                print("✅ Index idx_staged_customer created")
 
                 conn.execute("""
-                    CREATE NONCLUSTERED INDEX idx_item
-                    ON [dbo].[tbl_recommended_orders] (item_code, trx_date)
+                    CREATE NONCLUSTERED INDEX idx_staged_item
+                    ON [dbo].[tbl_staged_recommended_orders] (item_code, trx_date)
                 """)
-                print("✅ Index idx_item created")
+                print("✅ Index idx_staged_item created")
 
                 conn.execute("""
-                    CREATE NONCLUSTERED INDEX idx_generated_at
-                    ON [dbo].[tbl_recommended_orders] (generated_at DESC)
+                    CREATE NONCLUSTERED INDEX idx_staged_generated_at
+                    ON [dbo].[tbl_staged_recommended_orders] (generated_at DESC)
                 """)
-                print("✅ Index idx_generated_at created")
+                print("✅ Index idx_staged_generated_at created")
 
                 conn.commit()
                 print("\n✅ All indexes created successfully!")
@@ -90,7 +90,8 @@ def create_recommended_orders_table():
             print(f"\n⚠️  Warning: Could not create indexes (table will still work): {e}")
             print("Note: Indexes improve performance but aren't required for basic functionality")
 
-        print("\n🎉 Setup complete! Table is ready for use.")
+        print("\n🎉 STAGED Setup complete! Table is ready for use.")
+        print("This table is separate from production [tbl_recommended_orders]")
 
     except Exception as e:
         print(f"❌ Error creating table: {e}")
@@ -100,4 +101,4 @@ def create_recommended_orders_table():
 
 
 if __name__ == "__main__":
-    create_recommended_orders_table()
+    create_staged_recommended_orders_table()

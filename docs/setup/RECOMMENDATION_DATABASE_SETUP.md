@@ -38,7 +38,7 @@ Test manually before setting up cron:
 
 ```bash
 # Generate recommendations for tomorrow
-curl -X POST "https://yaumi-live.onrender.com/api/v1/recommended-order/pre-generate-daily?date=2025-10-08"
+curl -X POST "https://staged.onrender.com/api/v1/recommended-order/pre-generate-daily?date=2025-10-08"
 ```
 
 **Expected Response:**
@@ -72,7 +72,7 @@ WHERE trx_date = '2025-10-08';
 2. **Create Account** (free)
 3. **Create New Cron Job:**
    - **Title:** Daily Yaumi Recommendations
-   - **Address:** `https://yaumi-live.onrender.com/api/v1/recommended-order/pre-generate-daily`
+   - **Address:** `https://staged.onrender.com/api/v1/recommended-order/pre-generate-daily`
    - **Schedule:** Every day at **3:00 AM** (your local time)
    - **Request Method:** POST
    - **Query Parameters:**
@@ -95,7 +95,7 @@ If you have Render cron jobs enabled:
 ```yaml
 services:
   - type: web
-    name: yaumi-live
+    name: staged-backend
     env: python
     buildCommand: pip install -r backend/requirements.txt
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port 10000
@@ -107,7 +107,7 @@ services:
     buildCommand: pip install -r backend/requirements.txt
     startCommand: |
       TOMORROW=$(date -d "tomorrow" +%Y-%m-%d)
-      curl -X POST "https://yaumi-live.onrender.com/api/v1/recommended-order/pre-generate-daily?date=$TOMORROW"
+      curl -X POST "https://staged.onrender.com/api/v1/recommended-order/pre-generate-daily?date=$TOMORROW"
 ```
 
 2. **Commit and push** `render.yaml`
@@ -232,7 +232,7 @@ ORDER BY trx_date DESC;
 1. **Check cron-job.org logs** (if using external service)
 2. **Manually trigger** pre-generation:
    ```bash
-   curl -X POST "https://yaumi-live.onrender.com/api/v1/recommended-order/pre-generate-daily?date=2025-10-08"
+   curl -X POST "https://staged.onrender.com/api/v1/recommended-order/pre-generate-daily?date=2025-10-08"
    ```
 3. **Check Render logs** for errors
 
@@ -243,7 +243,7 @@ ORDER BY trx_date DESC;
 **Solution:**
 ```bash
 # Regenerate for specific date
-curl -X POST "https://yaumi-live.onrender.com/api/v1/recommended-order/pre-generate-daily?date=2025-10-08"
+curl -X POST "https://staged.onrender.com/api/v1/recommended-order/pre-generate-daily?date=2025-10-08"
 ```
 
 ---

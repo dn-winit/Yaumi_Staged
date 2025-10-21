@@ -535,7 +535,7 @@ async def pre_generate_daily_recommendations(
     **Route:** Generates for ALL routes, saves per-route to database
     This ensures consistency across all generation points
 
-    **Example:** curl -X POST "https://yaumi-live.onrender.com/api/v1/recommended-order/pre-generate-daily?date=2025-10-08"
+    **Example:** curl -X POST "https://staged.onrender.com/api/v1/recommended-order/pre-generate-daily?date=2025-10-08"
     """
     try:
         # Check if data manager is loaded

@@ -6,7 +6,7 @@ region# ==========================================
 
 services:
   - type: web
-    name: salesvision-backend
+    name: staged-backend
     runtime: docker
     region: ohio  # US region for optimal performance
     plan: starter
@@ -42,7 +42,7 @@ services:
 
       # CORS - Update with your Vercel frontend URL
       - key: CORS_ORIGINS
-        value: "https://*.vercel.app,https://salesvision-app.vercel.app"
+        value: "https://*.vercel.app,https://staged.vercel.app"
 
       - key: LOG_LEVEL
         value: "INFO"
